@@ -1,0 +1,74 @@
+# pqc-scanner detection rules for non-Python files.
+# Patterns are matched line-by-line via Python re.search.
+# Only applied to files whose extension is listed under `extensions`.
+
+quantum_broken:
+  - id: js_ts_rsa
+    algorithm: RSA
+    pattern: '\b(RSA|generateKeyPairSync.*rsa|createSign.*rsa|createVerify.*rsa)\b'
+    extensions: [.js, .ts, .mjs, .cjs, .jsx, .tsx]
+    recommendation: >
+      Replace with ML-KEM (FIPS 203) for key encapsulation or ML-DSA (FIPS 204)
+      for signatures — see liboqs-js or the Web Crypto API hybrid drafts
+
+  - id: java_kt_rsa
+    algorithm: RSA
+    pattern: 'getInstance\s*\(\s*"RSA"'
+    extensions: [.java, .kt]
+    recommendation: >
+      Replace with ML-KEM (FIPS 203) / ML-DSA (FIPS 204) via liboqs-java
+      (Open Quantum Safe)
+
+  - id: go_rsa
+    algorithm: RSA
+    pattern: '\b(rsa\.GenerateKey|rsa\.SignPKCS1v15|rsa\.EncryptOAEP|rsa\.DecryptOAEP)\b'
+    extensions: [.go]
+    recommendation: >
+      Replace with ML-KEM (FIPS 203) / ML-DSA (FIPS 204) via liboqs-go
+
+  - id: generic_ecdsa_ecdh
+    algorithm: "ECC/ECDSA/ECDH"
+    pattern: '\b(ECDSA|ECDH|EC_KEY|EcdhKeyAgreement|elliptic\.P256|elliptic\.P384|elliptic\.P521)\b'
+    extensions: [.js, .ts, .mjs, .cjs, .java, .kt, .go, .rb, .php, .cs]
+    recommendation: >
+      Replace with ML-DSA (FIPS 204) for signatures or ML-KEM (FIPS 203) for
+      key exchange via liboqs
+
+  - id: openssl_conf_key_algo
+    algorithm: RSA
+    pattern: '(?i)(default_bits\s*=\s*[0-9]+|keyAlg\s*=\s*RSA|algorithm\s*=\s*RSA\b)'
+    extensions: [.conf, .cfg, .cnf]
+    recommendation: >
+      When toolchain supports FIPS 203/204, switch key algorithm to ML-KEM or
+      ML-DSA; for now ensure RSA key size >= 3072 as interim measure
+
+classically_broken:
+  - id: generic_md5
+    algorithm: MD5
+    pattern: '\b(MD5|md5sum|MessageDigest\.getInstance\s*\(\s*"MD5")\b'
+    extensions: [.js, .ts, .mjs, .cjs, .java, .kt, .go, .rb, .php, .cs, .sh, .conf, .cfg]
+    recommendation: Replace with SHA-256 or SHA-3
+
+  - id: generic_sha1
+    algorithm: SHA-1
+    pattern: '\b(SHA-?1|sha1sum|MessageDigest\.getInstance\s*\(\s*"SHA-?1")\b'
+    extensions: [.js, .ts, .mjs, .cjs, .java, .kt, .go, .rb, .php, .cs, .sh, .conf, .cfg]
+    recommendation: "Replace with SHA-256 (SHA-1 broken since 2017 — SHAttered attack)"
+
+  - id: tls_old_versions
+    algorithm: "TLS 1.0/1.1"
+    pattern: '(?i)(TLSv1\.0|TLSv1\.1|ssl_protocols[^;]*\bTLSv1\b(?![.\s]*[23]))'
+    extensions: [.conf, .cfg, .nginx, .yml, .yaml, .json]
+    recommendation: "Upgrade to TLS 1.3 (TLS 1.0/1.1 deprecated per RFC 8996)"
+
+  - id: generic_rc4
+    algorithm: RC4
+    pattern: '\b(RC4|ARCFOUR|ARC4)\b'
+    extensions: [.js, .ts, .java, .kt, .go, .rb, .php, .cs, .conf, .cfg]
+    recommendation: Replace with AES-256-GCM
+
+  - id: generic_des_3des
+    algorithm: DES/3DES
+    pattern: '\b((?<!\w)DES(?!\w)|3DES|TripleDES|DESedeKeyAgreement|DESede)\b'
+    extensions: [.js, .ts, .java, .kt, .go, .rb, .php, .cs]
+    recommendation: "Replace with AES-256 (NIST deprecated 3DES in 2023, SP 800-131A r2)"

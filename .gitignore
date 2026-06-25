@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+*.egg
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Reports (generated output — not tracked)
+pqc-report.html
+*.report.html
+
+# OS
+.DS_Store
+Thumbs.db

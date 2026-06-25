@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pqc-scanner"
+version = "1.0.0"
+description = "Static analysis tool for detecting quantum-vulnerable cryptography and recommending NIST PQC replacements"
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.12",
+    "rich>=13",
+    "pyyaml>=6",
+]
+
+[project.scripts]
+pqc-scan = "pqcscanner.cli:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
