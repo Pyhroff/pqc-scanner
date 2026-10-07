@@ -34,16 +34,16 @@ Most "quantum-safe" scanners flag everything cryptographic. That's wrong - and a
 
 ---
 
-## NIST PQC Standards (finalized August 2024)
+## NIST PQC Standards and current status
 
 | Standard | Algorithm | Replaces |
 |----------|-----------|---------|
 | **FIPS 203** | ML-KEM (Kyber) | RSA / ECDH / DH - key encapsulation |
 | **FIPS 204** | ML-DSA (Dilithium) | RSA-sign / ECDSA / DSA - digital signatures |
 | **FIPS 205** | SLH-DSA (SPHINCS+) | Hash-based conservative fallback |
-| Draft FIPS 206 | FN-DSA (FALCON) | Compact lattice signatures |
+| FIPS 206 (in development) | FN-DSA (FALCON) | Compact lattice signatures |
 
-Reference implementation: [liboqs-python](https://github.com/open-quantum-safe/liboqs-python)
+Reference implementation / prototyping library: [liboqs-python](https://github.com/open-quantum-safe/liboqs-python). OQS is a prototyping ecosystem; deployment choices should follow finalized standards and current vendor/library guidance.
 
 ---
 
@@ -93,7 +93,9 @@ Exit codes:  0 = clean  ·  1 = findings at --fail-on level  ·  2 = error
 
 ## What gets detected
 
-### Python (AST-based - zero false positives on import aliases or renamed modules)
+### Python (AST-based)
+
+The Python detector tracks common import aliases and module paths structurally. The test suite covers representative aliases and renamed imports, but this is **not a guarantee of zero false positives or false negatives** across arbitrary Python programs.
 
 | Library | Detected patterns |
 |---------|------------------|
@@ -103,6 +105,8 @@ Exit codes:  0 = clean  ·  1 = findings at --fail-on level  ·  2 = error
 | `pycryptodome` | `from Crypto.Hash import MD5/SHA1`, `from Crypto.Cipher import DES/DES3/ARC4` |
 
 ### Non-Python (regex - JS, TS, Java, Kotlin, Go, config files)
+
+These matches are lexical heuristics: comments, strings, generated code, unusual formatting, or unsupported APIs can cause false positives or false negatives.
 
 RSA, ECDSA/ECDH, MD5, SHA-1, TLS 1.0/1.1, RC4, DES/3DES in `.js .ts .java .kt .go .conf .cfg .yml .yaml`
 
@@ -131,6 +135,22 @@ pqc-scanner/
         ├── classically_broken.py
         └── clean_pqc.py     # AES-256 + SHA-256: MUST produce zero findings
 ```
+
+---
+
+## Detection limits and interpretation
+
+This is a **static-analysis migration aid**, not a cryptographic verifier.
+
+- A finding indicates that a supported rule matched source text or a Python AST pattern. It does not establish that the primitive is reachable, security-sensitive, or actually used at runtime.
+- No finding does not establish that a project is quantum-safe. Dynamic imports, reflection, generated/native code, unsupported libraries, custom wrappers, obfuscation, and incomplete rules can evade detection.
+- Non-Python rules are regex-based and may match comments, documentation, strings, or configuration that is not executed.
+- Python AST analysis avoids many text-matching errors but does not perform whole-program data-flow, call-graph, or reachability analysis.
+- Recommendations are migration guidance rather than drop-in replacements. Protocol role, interoperability, key management, performance, and deployment constraints still require engineering review.
+- The scanner does not certify regulatory or standards compliance.
+- NIST's finalized PQC standards are FIPS 203 (ML-KEM), FIPS 204 (ML-DSA), and FIPS 205 (SLH-DSA). FALCON/FN-DSA remains in development, while NIST selected HQC for standardization as an additional KEM in 2025. Check current NIST publications before making migration or deployment decisions.
+
+For this reason, the clean-file tests are **correctness regression tests for known inputs**, not a statistical claim of zero false positives in arbitrary codebases.
 
 ---
 
