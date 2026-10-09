@@ -172,7 +172,7 @@ def to_sarif(findings: list[Finding], scanned_path: str = "") -> str:
             rules_by_id[rid] = {
                 "id": rid,
                 "name": f.algorithm,
-                "shortDescription": {"text": f"{f.algorithm} finding ({f.bucket.value})"},
+                "shortDescription": {"text": f"{finding.algorithm} finding ({finding.bucket.value})"},
                 "defaultConfiguration": {"level": level_map.get(f.severity, "note")},
                 "properties": {"bucket": f.bucket.value, "algorithm": f.algorithm},
             }
