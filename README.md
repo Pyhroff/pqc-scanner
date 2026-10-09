@@ -5,11 +5,12 @@
 ```bash
 pqc-scan scan ./my-service            # find all vulnerable crypto
 pqc-scan scan ./my-service -f html    # generate HTML report
+pqc-scan scan ./my-service -f sarif -o results.sarif  # GitHub code-scanning format
 pqc-scan ci ./my-service              # CI gate - exits 1 on critical findings
 ```
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-14-brightgreen?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-17-brightgreen?style=flat-square)
 ![NIST](https://img.shields.io/badge/NIST%20PQC-FIPS%20203%2F204%2F205-orange?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
@@ -60,6 +61,9 @@ pqc-scan scan ./my-project
 # HTML report
 pqc-scan scan ./my-project --format html --output report.html
 
+# SARIF 2.1.0 for GitHub code scanning / downstream tooling
+pqc-scan scan ./my-project --format sarif --output results.sarif
+
 # CI/CD gate (exits 1 if critical findings)
 pqc-scan ci ./my-project --fail-on critical --json
 ```
@@ -73,7 +77,7 @@ pqc-scan ci ./my-project --fail-on critical --json
 ```
 pqc-scan scan PATH [OPTIONS]
 
-  --format        -f   text | json | html         [default: text]
+  --format        -f   text | json | html | sarif  [default: text]
   --output        -o   Write to file               [default: stdout]
   --min-severity       critical | warning | informational  [default: warning]
 ```
@@ -101,8 +105,9 @@ The Python detector tracks common import aliases and module paths structurally. 
 |---------|------------------|
 | `cryptography` | `from ...asymmetric import rsa/ec/dh/dsa/ed25519/x25519` |
 | `pycryptodome` | `from Crypto.PublicKey import RSA/ECC/DSA/ElGamal` |
-| `hashlib` | `hashlib.md5()`, `hashlib.sha1()`, `hashlib.new("md5", ...)` |
-| `pycryptodome` | `from Crypto.Hash import MD5/SHA1`, `from Crypto.Cipher import DES/DES3/ARC4` |
+| `hashlib` | `hashlib.md5()`, `hashlib.sha1()`, `hashlib.new("md5", ...)`, direct/module aliases |
+| `cryptography` | `cryptography.hazmat.primitives.hashes.MD5/SHA1` factories and imported module aliases |
+| `pycryptodome` | `from Crypto.Hash import MD5/SHA1`, `Crypto.Hash.MD5.new(...)` / `SHA1.new(...)` through module aliases, `from Crypto.Cipher import DES/DES3/ARC4` |
 
 ### Non-Python (regex - JS, TS, Java, Kotlin, Go, config files)
 
@@ -120,13 +125,13 @@ pqc-scanner/
 │   ├── taxonomy.py          # Bucket + Severity enums, Finding dataclass
 │   ├── scanner.py           # File walker, dispatches by extension
 │   ├── cli.py               # Typer CLI (scan, ci)
-│   ├── report.py            # text (Rich) · JSON · HTML output
+│   ├── report.py            # text (Rich) · JSON · HTML · SARIF 2.1.0 output
 │   └── detectors/
 │       ├── python_ast.py    # AST-based Python detector
 │       ├── generic.py       # Regex detector for non-Python files
 │       └── rules.yaml       # Detection rules (JS, Java, Go, config)
 └── tests/
-    ├── test_detectors.py    # 11 tests
+    ├── test_detectors.py    # detector, alias, JSON and SARIF regression tests
     └── fixtures/
         ├── vulnerable_rsa.py
         ├── vulnerable_ecc.py
@@ -188,3 +193,14 @@ NIST PQC (Aug 2024): ML-KEM FIPS 203 · ML-DSA FIPS 204 · SLH-DSA FIPS 205
 ## License
 
 MIT - see [LICENSE](LICENSE).
+
+
+### SARIF integration
+
+The `sarif` format emits SARIF 2.1.0 with stable rule identifiers, source locations, severity levels, fingerprints, and finding properties:
+
+```bash
+pqc-scan scan ./my-project --format sarif --output results.sarif
+```
+
+Use the resulting file with GitHub code scanning or the companion bridge in [Quantum Collapse](https://github.com/Pyhroff/quantum-collapse), which keeps observed static findings separate from scenario assumptions. SARIF output is a reporting format; it does not by itself upload results to GitHub or certify a repository as quantum-safe.
