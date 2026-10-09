@@ -17,11 +17,13 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 EXPECTED = {
     "clean_pqc.py": set(),
+    "clean_jwt_hs256.py": set(),
     "classically_broken.py": {Bucket.CLASSICALLY_BROKEN.value},
     "vulnerable_dh.py": {Bucket.QUANTUM_BROKEN.value},
     "vulnerable_ecc.py": {Bucket.QUANTUM_BROKEN.value},
     "vulnerable_pycryptodome.py": {Bucket.QUANTUM_BROKEN.value},
     "vulnerable_rsa.py": {Bucket.QUANTUM_BROKEN.value},
+    "vulnerable_jwt.py": {Bucket.QUANTUM_BROKEN.value},
 }
 BUCKETS = [bucket.value for bucket in Bucket]
 
