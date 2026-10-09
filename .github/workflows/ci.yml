@@ -28,6 +28,14 @@ jobs:
           python -m pip install -e . pytest
       - name: Run tests
         run: python -m pytest -q
+      - name: Install SARIF schema validator
+        run: python -m pip install jsonschema==4.25.1
+      - name: Validate vulnerable and clean SARIF reports against OASIS schema
+        run: |
+          pqc-scan scan tests/fixtures/vulnerable_rsa.py --format sarif --output /tmp/vulnerable.sarif
+          pqc-scan scan tests/fixtures/clean_pqc.py --format sarif --output /tmp/clean.sarif
+          python scripts/validate_sarif.py /tmp/vulnerable.sarif --expect-findings
+          python scripts/validate_sarif.py /tmp/clean.sarif --expect-empty
 
   package:
     name: Build package
