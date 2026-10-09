@@ -36,6 +36,8 @@ jobs:
           pqc-scan scan tests/fixtures/clean_pqc.py --format sarif --output /tmp/clean.sarif
           python scripts/validate_sarif.py /tmp/vulnerable.sarif --expect-findings
           python scripts/validate_sarif.py /tmp/clean.sarif --expect-empty
+      - name: Evaluate curated crypto detector fixture corpus
+        run: python scripts/evaluate_fixture_corpus.py --output /tmp/fixture-evaluation.json
 
   package:
     name: Build package
