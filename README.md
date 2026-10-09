@@ -9,7 +9,7 @@ pqc-scan ci ./my-service              # CI gate - exits 1 on critical findings
 ```
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-14%20expected-brightgreen?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-14-brightgreen?style=flat-square)
 ![NIST](https://img.shields.io/badge/NIST%20PQC-FIPS%20203%2F204%2F205-orange?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
