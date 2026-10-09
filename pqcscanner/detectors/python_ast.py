@@ -133,10 +133,6 @@ _HASHLIB_CB: dict[str, tuple[str, str]] = {
         "SHA-1",
         "Replace with hashlib.sha256 (SHA-1 broken since 2017 — SHAttered attack)",
     ),
-    "sha224": (
-        "SHA-224",
-        "Replace with hashlib.sha256 (truncated output provides less security margin)",
-    ),
 }
 
 
@@ -230,7 +226,16 @@ class _CryptoVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
-        if isinstance(node.func, ast.Attribute):
+        # Catch direct imports such as:
+        #   from hashlib import md5 as legacy_hash
+        #   legacy_hash(data)
+        if isinstance(node.func, ast.Name):
+            resolved = self._aliases.get(node.func.id, "")
+            if resolved.startswith("hashlib."):
+                name = resolved.rsplit(".", 1)[-1].lower()
+                self._add_hash_finding(name, node.lineno)
+
+        elif isinstance(node.func, ast.Attribute):
             attr = node.func.attr
             obj_id = ""
             if isinstance(node.func.value, ast.Name):
@@ -238,28 +243,26 @@ class _CryptoVisitor(ast.NodeVisitor):
 
             resolved = self._aliases.get(obj_id, obj_id)
 
-            # hashlib.<hash>() and hashlib.new('<hash>')
-            if resolved == "hashlib" or obj_id == "hashlib":
+            # hashlib.<hash>() and hashlib.new('<hash>'), including module aliases.
+            if resolved == "hashlib":
                 if attr in _HASHLIB_CB:
-                    algo, rec = _HASHLIB_CB[attr]
-                    self.findings.append(Finding(
-                        file=self.path, line=node.lineno,
-                        algorithm=algo, bucket=Bucket.CLASSICALLY_BROKEN,
-                        severity=Severity.WARNING,
-                        context=_ctx(self.lines, node.lineno), recommendation=rec,
-                    ))
+                    self._add_hash_finding(attr, node.lineno)
                 elif attr == "new" and node.args and isinstance(node.args[0], ast.Constant):
-                    name = str(node.args[0].value).lower()
-                    if name in _HASHLIB_CB:
-                        algo, rec = _HASHLIB_CB[name]
-                        self.findings.append(Finding(
-                            file=self.path, line=node.lineno,
-                            algorithm=algo, bucket=Bucket.CLASSICALLY_BROKEN,
-                            severity=Severity.WARNING,
-                            context=_ctx(self.lines, node.lineno), recommendation=rec,
-                        ))
+                    self._add_hash_finding(str(node.args[0].value).lower(), node.lineno)
 
         self.generic_visit(node)
+
+    def _add_hash_finding(self, name: str, lineno: int) -> None:
+        match = _HASHLIB_CB.get(name)
+        if match is None:
+            return
+        algo, rec = match
+        self.findings.append(Finding(
+            file=self.path, line=lineno,
+            algorithm=algo, bucket=Bucket.CLASSICALLY_BROKEN,
+            severity=Severity.WARNING,
+            context=_ctx(self.lines, lineno), recommendation=rec,
+        ))
 
 
 def _algo_from_prefix(prefix: str) -> str:
