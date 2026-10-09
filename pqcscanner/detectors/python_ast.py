@@ -123,6 +123,28 @@ _QB_MODULE_PREFIXES: tuple[str, ...] = (
     "rsa",  # standalone rsa package
 )
 
+# ── JOSE/JWT signing algorithms backed by quantum-vulnerable public-key crypto
+_JOSE_QB_ALGORITHMS: dict[str, tuple[str, str]] = {
+    **{
+        name: (
+            f"JWT {name.upper()} (RSA)",
+            "RSA-based JWT signing is vulnerable to Shor's algorithm; plan migration to ML-DSA (FIPS 204).",
+        )
+        for name in ("rs256", "rs384", "rs512", "ps256", "ps384", "ps512")
+    },
+    **{
+        name: (
+            f"JWT {name.upper()} (ECDSA)",
+            "ECDSA-based JWT signing is vulnerable to Shor's algorithm; plan migration to ML-DSA (FIPS 204).",
+        )
+        for name in ("es256", "es384", "es512")
+    },
+    "eddsa": (
+        "JWT EdDSA (Ed25519/Ed448)",
+        "Ed25519/Ed448 JWT signing is quantum-vulnerable; plan migration to ML-DSA (FIPS 204).",
+    ),
+}
+
 # ── Call-site: hashlib.md5 / hashlib.sha1 ────────────────────────────────────
 _HASHLIB_CB: dict[str, tuple[str, str]] = {
     "md5": (
@@ -231,7 +253,20 @@ class _CryptoVisitor(ast.NodeVisitor):
         resolved = self._resolve_dotted_name(node.func)
         lowered = resolved.lower()
 
-        if lowered.startswith("hashlib."):
+        if lowered in {"jwt.encode", "jwt.decode", "jose.jwt.encode", "jose.jwt.decode"}:
+            for algorithm in self._jose_algorithms(node):
+                match = _JOSE_QB_ALGORITHMS.get(algorithm.lower())
+                if match is None:
+                    continue
+                algo, rec = match
+                self.findings.append(Finding(
+                    file=self.path, line=node.lineno,
+                    algorithm=algo, bucket=Bucket.QUANTUM_BROKEN,
+                    severity=Severity.CRITICAL,
+                    context=_ctx(self.lines, node.lineno), recommendation=rec,
+                ))
+
+        elif lowered.startswith("hashlib."):
             name = lowered.rsplit(".", 1)[-1]
             if name == "new" and node.args and isinstance(node.args[0], ast.Constant):
                 self._add_hash_finding(str(node.args[0].value).lower(), node.lineno)
@@ -248,6 +283,27 @@ class _CryptoVisitor(ast.NodeVisitor):
             self._add_hash_finding(lowered.rsplit(".", 1)[-1], node.lineno)
 
         self.generic_visit(node)
+
+    @staticmethod
+    def _jose_algorithms(node: ast.Call) -> set[str]:
+        """Read literal JOSE algorithm arguments without executing application code."""
+        found: set[str] = set()
+
+        def collect(value: ast.AST) -> None:
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                found.add(value.value)
+            elif isinstance(value, (ast.List, ast.Tuple, ast.Set)):
+                for item in value.elts:
+                    collect(item)
+
+        for keyword in node.keywords:
+            if keyword.arg in {"algorithm", "alg", "algorithms"}:
+                collect(keyword.value)
+            elif keyword.arg == "headers" and isinstance(keyword.value, ast.Dict):
+                for key, value in zip(keyword.value.keys, keyword.value.values):
+                    if isinstance(key, ast.Constant) and key.value == "alg":
+                        collect(value)
+        return found
 
     def _resolve_dotted_name(self, node: ast.AST) -> str:
         if isinstance(node, ast.Name):
