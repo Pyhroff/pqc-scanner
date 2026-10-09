@@ -52,8 +52,17 @@ def scan(
         out = output or Path("pqc-report.html")
         out.write_text(result, encoding="utf-8")
         _console.print(f"[green]HTML report → {out}[/]")
-    else:
+    elif format == "sarif":
+        result = to_sarif(findings, scanned_path=str(path))
+        if output:
+            output.write_text(result + "\n", encoding="utf-8")
+            _console.print(f"[green]SARIF report → {output}[/]")
+        else:
+            print(result)
+    elif format == "text":
         print_text_report(findings, _console)
+    else:
+        raise typer.BadParameter("format must be one of: text, json, html, sarif")
 
     raise typer.Exit(0)
 
