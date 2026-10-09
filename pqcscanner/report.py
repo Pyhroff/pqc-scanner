@@ -1,6 +1,8 @@
 """Output formatters: text (Rich), JSON, HTML."""
 
+import hashlib
 import json
+import re
 from pathlib import Path
 
 from rich import box
@@ -148,3 +150,64 @@ a{{color:#79c0ff}}
 </div>
 </body>
 </html>"""
+
+
+
+def to_sarif(findings: list[Finding], tool_name: str = "pqc-scanner") -> str:
+    """Serialize findings as SARIF 2.1.0 for GitHub code scanning ingestion."""
+    rules: dict[str, dict] = {}
+    results: list[dict] = []
+    severity_map = {
+        Severity.CRITICAL: ("error", "9.5"),
+        Severity.WARNING: ("warning", "6.5"),
+        Severity.INFORMATIONAL: ("note", "3.0"),
+    }
+
+    for finding in findings:
+        slug = re.sub(r"[^a-z0-9]+", "-", finding.algorithm.lower()).strip("-") or "crypto"
+        rule_id = f"pqc.{finding.bucket.value}.{slug}"
+        level, security_severity = severity_map[finding.severity]
+        rules.setdefault(rule_id, {
+            "id": rule_id,
+            "name": slug.replace("-", " ").title(),
+            "shortDescription": {"text": f"{finding.bucket.value.replace('_', ' ').title()}: {finding.algorithm}"},
+            "fullDescription": {"text": finding.recommendation},
+            "help": {"text": finding.recommendation, "markdown": finding.recommendation},
+            "properties": {
+                "tags": ["security", "cryptography", "post-quantum"],
+                "precision": "medium",
+                "security-severity": security_severity,
+            },
+        })
+        file_uri = Path(finding.file).as_posix()
+        fingerprint_source = f"{file_uri}\n{finding.line}\n{rule_id}\n{finding.context}"
+        results.append({
+            "ruleId": rule_id,
+            "level": level,
+            "message": {"text": f"{finding.algorithm}: {finding.recommendation}"},
+            "locations": [{
+                "physicalLocation": {
+                    "artifactLocation": {"uri": file_uri},
+                    "region": {"startLine": max(1, int(finding.line))},
+                }
+            }],
+            "partialFingerprints": {
+                "primaryLocationLineHash": hashlib.sha256(fingerprint_source.encode("utf-8")).hexdigest()
+            },
+            "properties": {
+                "bucket": finding.bucket.value,
+                "algorithm": finding.algorithm,
+                "context": finding.context,
+                "recommendation": finding.recommendation,
+            },
+        })
+
+    payload = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {"name": tool_name, "rules": [rules[k] for k in sorted(rules)]}},
+            "results": results,
+        }],
+    }
+    return json.dumps(payload, indent=2)
