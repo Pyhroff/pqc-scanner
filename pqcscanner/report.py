@@ -148,3 +148,70 @@ a{{color:#79c0ff}}
 </div>
 </body>
 </html>"""
+
+
+def to_sarif(findings: list[Finding], scanned_path: str = "") -> str:
+    """Serialize findings as SARIF 2.1.0 for CI and downstream security tooling."""
+    import hashlib
+
+    def rule_id(f: Finding) -> str:
+        algorithm = "".join(ch.lower() if ch.isalnum() else "-" for ch in f.algorithm).strip("-")
+        bucket = f.bucket.value
+        return f"pqc.{bucket}.{algorithm or 'unknown'}"
+
+    rules_by_id: dict[str, dict] = {}
+    results: list[dict] = []
+    level_map = {
+        Severity.CRITICAL: "error",
+        Severity.WARNING: "warning",
+        Severity.INFORMATIONAL: "note",
+    }
+    for finding in findings:
+        rid = rule_id(finding)
+        if rid not in rules_by_id:
+            rules_by_id[rid] = {
+                "id": rid,
+                "name": f.algorithm,
+                "shortDescription": {"text": f"{f.algorithm} finding ({f.bucket.value})"},
+                "defaultConfiguration": {"level": level_map.get(f.severity, "note")},
+                "properties": {"bucket": f.bucket.value, "algorithm": f.algorithm},
+            }
+        rule_index = list(rules_by_id).index(rid)
+        uri = Path(finding.file).as_posix()
+        location = {"physicalLocation": {"artifactLocation": {"uri": uri}}}
+        if isinstance(finding.line, int) and finding.line > 0:
+            location["physicalLocation"]["region"] = {"startLine": finding.line}
+        results.append({
+            "ruleId": rid,
+            "ruleIndex": rule_index,
+            "level": level_map.get(finding.severity, "note"),
+            "message": {"text": f"{finding.context} Recommendation: {finding.recommendation}"},
+            "locations": [location],
+            "properties": {
+                "bucket": finding.bucket.value,
+                "algorithm": finding.algorithm,
+                "recommendation": finding.recommendation,
+                "evidence_type": "static_source_code_finding",
+            },
+        })
+
+    payload = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {
+                "name": "pqc-scanner",
+                "informationUri": "https://github.com/Pyhroff/pqc-scanner",
+                "rules": list(rules_by_id.values()),
+            }},
+            "results": results,
+            "properties": {
+                "scanned_path": scanned_path,
+                "finding_count": len(results),
+                "finding_set_sha256": hashlib.sha256(
+                    json.dumps(results, sort_keys=True, separators=(",", ":")).encode("utf-8")
+                ).hexdigest(),
+            },
+        }],
+    }
+    return json.dumps(payload, indent=2, ensure_ascii=False)
