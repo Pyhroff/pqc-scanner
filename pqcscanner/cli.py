@@ -35,7 +35,9 @@ def scan(
     min_severity: str = typer.Option("warning", "--min-severity", help="Minimum severity to show: critical | warning | informational"),
 ) -> None:
     """Scan a codebase for quantum-vulnerable and classically-broken cryptography."""
-    _console.print(f"[dim]Scanning {path} …[/]")
+    # Keep stdout machine-readable when SARIF is streamed without --output.
+    if format != "sarif" or output is not None:
+        _console.print(f"[dim]Scanning {path} …[/]")
     findings = scan_path(path)
 
     threshold = _SEV_ORDER.get(min_severity.lower(), 2)
@@ -54,14 +56,16 @@ def scan(
         out.write_text(result, encoding="utf-8")
         _console.print(f"[green]HTML report → {out}[/]")
     elif format == "sarif":
-        result = to_sarif(findings)
+        result = to_sarif(findings, scanned_path=str(path))
         if output:
-            output.write_text(result, encoding="utf-8")
+            output.write_text(result + "\\n", encoding="utf-8")
             _console.print(f"[green]SARIF report → {output}[/]")
         else:
             print(result)
-    else:
+    elif format == "text":
         print_text_report(findings, _console)
+    else:
+        raise typer.BadParameter("format must be one of: text, json, html, sarif")
 
     raise typer.Exit(0)
 
