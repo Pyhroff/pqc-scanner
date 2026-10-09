@@ -130,6 +130,35 @@ byte[] digest = md.digest();
     assert len(cb) >= 1, "MD5 in Java must be detected as CLASSICALLY_BROKEN"
 
 
+
+# ── RUST CRYPTO API COVERAGE ──────────────────────────────────────────────────
+
+def test_generic_detector_rust_rsa_api():
+    source = "use rsa::RsaPrivateKey;\nlet key = RsaPrivateKey::new(&mut rng, 2048)?;"
+    findings = detect_generic(Path("crypto.rs"), source)
+    qb = [f for f in findings if f.bucket == Bucket.QUANTUM_BROKEN]
+    assert any(f.algorithm == "RSA" for f in qb)
+
+
+def test_generic_detector_rust_ecdh_api():
+    source = "use p256::ecdh::EphemeralSecret;\nlet secret = EphemeralSecret::random(&mut rng);"
+    findings = detect_generic(Path("exchange.rs"), source)
+    qb = [f for f in findings if f.bucket == Bucket.QUANTUM_BROKEN]
+    assert any("ECDH" in f.algorithm or "ECC" in f.algorithm for f in qb)
+
+
+def test_generic_detector_rust_sha1_api():
+    source = "use sha1::Sha1;\nlet digest = Sha1::new();"
+    findings = detect_generic(Path("hash.rs"), source)
+    cb = [f for f in findings if f.bucket == Bucket.CLASSICALLY_BROKEN]
+    assert any(f.algorithm == "SHA-1" for f in cb)
+
+
+def test_generic_detector_rust_clean_sha256_not_flagged():
+    source = "use sha2::Sha256;\nlet digest = Sha256::digest(data);"
+    findings = detect_generic(Path("hash.rs"), source)
+    assert findings == []
+
 # ── JSON REPORT STRUCTURE ─────────────────────────────────────────────────────
 
 def test_json_report_structure():
