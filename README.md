@@ -113,7 +113,9 @@ The Python detector tracks common import aliases and module paths structurally. 
 
 These matches are lexical heuristics: comments, strings, generated code, unusual formatting, or unsupported APIs can cause false positives or false negatives.
 
-Rust rules cover selected `rsa`, `p256`/`k256`/`p384`, OpenSSL, and `ring` key/signature APIs, plus `md5`, `sha1`, DES, and RC4 crate spellings. They are line-oriented lexical heuristics and may match comments or strings; they do not establish reachability or runtime use.\n\nRSA, ECDSA/ECDH, MD5, SHA-1, TLS 1.0/1.1, RC4, DES/3DES in `.js .ts .java .kt .go .rs .conf .cfg .yml .yaml`
+Rust rules cover selected `rsa`, `p256`/`k256`/`p384`, OpenSSL, and `ring` key/signature APIs, plus `md5`, `sha1`, DES, and RC4 crate spellings. They are line-oriented lexical heuristics and may match comments or strings; they do not establish reachability or runtime use.
+
+RSA, ECDSA/ECDH, MD5, SHA-1, TLS 1.0/1.1, RC4, DES/3DES in `.js .ts .java .kt .go .rs .conf .cfg .yml .yaml`
 
 ---
 
