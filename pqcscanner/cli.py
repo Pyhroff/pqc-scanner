@@ -8,7 +8,7 @@ from rich.console import Console
 
 from pqcscanner.scanner import scan_path
 from pqcscanner.taxonomy import Bucket, Severity
-from pqcscanner.report import print_text_report, to_json, to_html
+from pqcscanner.report import print_text_report, to_json, to_html, to_sarif
 
 app = typer.Typer(
     help=(
@@ -28,12 +28,12 @@ _SEV_ORDER = {"critical": 3, "warning": 2, "informational": 1}
 @app.command()
 def scan(
     path: Path = typer.Argument(..., help="File or directory to scan", exists=True),
-    format: str = typer.Option("text", "--format", "-f", help="text | json | html"),
+    format: str = typer.Option("text", "--format", "-f", help="text | json | html | sarif"),
     output: Path | None = typer.Option(None, "--output", "-o", help="Write to file instead of stdout"),
     min_severity: str = typer.Option("warning", "--min-severity", help="Minimum severity to show: critical | warning | informational"),
 ) -> None:
     """Scan a codebase for quantum-vulnerable and classically-broken cryptography."""
-    _console.print(f"[dim]Scanning {path} …[/]")
+    if format != "sarif" or output is not None:\n        _console.print(f"[dim]Scanning {path} …[/]")
     findings = scan_path(path)
 
     threshold = _SEV_ORDER.get(min_severity.lower(), 2)
