@@ -44,7 +44,7 @@ quantum_broken:
 
   - id: rust_rsa_apis
     algorithm: RSA
-    pattern: '\\b(rsa::(RsaPrivateKey|RsaPublicKey)|openssl::rsa::Rsa|RSA_PKCS1_[A-Z0-9_]+)\\b'
+    pattern: '\b(rsa::(RsaPrivateKey|RsaPublicKey)|openssl::rsa::Rsa|RSA_PKCS1_[A-Z0-9_]+)\b'
     extensions: [.rs]
     recommendation: >
       Assess replacement of RSA key exchange or signatures with ML-KEM (FIPS 203)
@@ -52,7 +52,7 @@ quantum_broken:
 
   - id: rust_ec_apis
     algorithm: "ECC/ECDSA/ECDH"
-    pattern: '\\b(p256::(ecdsa|ecdh)|k256::ecdsa|p384::(ecdsa|ecdh)|openssl::ec::EcKey|ring::agreement::ECDH_[A-Z0-9_]+)\\b'
+    pattern: '\b(p256::(ecdsa|ecdh)|k256::ecdsa|p384::(ecdsa|ecdh)|openssl::ec::EcKey|ring::agreement::ECDH_[A-Z0-9_]+)\b'
     extensions: [.rs]
     recommendation: >
       Assess ML-DSA (FIPS 204) for signatures or ML-KEM (FIPS 203) for key
@@ -90,19 +90,19 @@ classically_broken:
     recommendation: "Replace with AES-256 (NIST deprecated 3DES in 2023, SP 800-131A r2)"
   - id: rust_md5
     algorithm: MD5
-    pattern: '\\b(md5::compute|md5::Md5|Md5::new)\\b'
+    pattern: '\b(md5::compute|md5::Md5|Md5::new)\b'
     extensions: [.rs]
     recommendation: Replace MD5 with SHA-256 or SHA-3 where a cryptographic hash is required
 
   - id: rust_sha1
     algorithm: SHA-1
-    pattern: '\\b(sha1::Sha1|Sha1::new)\\b'
+    pattern: '\b(sha1::Sha1|Sha1::new)\b'
     extensions: [.rs]
     recommendation: Replace SHA-1 with SHA-256 or SHA-3 where a cryptographic hash is required
 
   - id: rust_des_rc4
     algorithm: DES/RC4
-    pattern: '\\b(des::Des|des::TdesEde3|rc4::Rc4)\\b'
+    pattern: '\b(des::Des|des::TdesEde3|rc4::Rc4)\b'
     extensions: [.rs]
     recommendation: Replace legacy DES/3DES/RC4 use with a modern authenticated-encryption design
 
