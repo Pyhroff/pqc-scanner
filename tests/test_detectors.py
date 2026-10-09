@@ -281,3 +281,15 @@ def test_crypto_inventory_resolves_module_aliases(tmp_path):
         and item["api"] == "hashlib.sha1"
         for item in report["observations"]
     )
+
+
+
+def test_crypto_inventory_resolves_fully_qualified_pycryptodome_import(tmp_path):
+    source = tmp_path / "pycryptodome_alias.py"
+    source.write_text("import Crypto.PublicKey.RSA as rsa_module\n", encoding="utf-8")
+    report = build_inventory(source)
+    assert any(
+        item["algorithm"] == "RSA"
+        and item["classification"] == "quantum_broken"
+        for item in report["observations"]
+    )
