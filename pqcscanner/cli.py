@@ -58,7 +58,7 @@ def scan(
     elif format == "sarif":
         result = to_sarif(findings, scanned_path=str(path))
         if output:
-            output.write_text(result + "\\n", encoding="utf-8")
+            output.write_text(result + "\n", encoding="utf-8")
             _console.print(f"[green]SARIF report → {output}[/]")
         else:
             print(result)
