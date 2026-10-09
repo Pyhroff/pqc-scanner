@@ -293,3 +293,44 @@ def test_crypto_inventory_resolves_fully_qualified_pycryptodome_import(tmp_path)
         and item["classification"] == "quantum_broken"
         for item in report["observations"]
     )
+
+# ── RUST CRYPTO API COVERAGE ──────────────────────────────────────────────────
+
+def test_generic_detector_rust_rsa_api():
+    source = "use rsa::RsaPrivateKey;\\nlet key = RsaPrivateKey::new(&mut rng, 2048)?;"
+    findings = detect_generic(Path("crypto.rs"), source)
+    assert any(f.bucket == Bucket.QUANTUM_BROKEN and f.algorithm == "RSA" for f in findings)
+
+
+def test_generic_detector_rust_ecdh_api():
+    source = "use p256::ecdh::EphemeralSecret;\\nlet secret = EphemeralSecret::random(&mut rng);"
+    findings = detect_generic(Path("exchange.rs"), source)
+    assert any(
+        f.bucket == Bucket.QUANTUM_BROKEN and ("ECDH" in f.algorithm or "ECC" in f.algorithm)
+        for f in findings
+    )
+
+
+def test_generic_detector_rust_sha1_api():
+    findings = detect_generic(Path("hash.rs"), "use sha1::Sha1;\\nlet digest = Sha1::new();")
+    assert any(f.bucket == Bucket.CLASSICALLY_BROKEN and f.algorithm == "SHA-1" for f in findings)
+
+
+def test_generic_detector_rust_legacy_cipher_api():
+    findings = detect_generic(Path("cipher.rs"), "use rc4::Rc4;\\nlet cipher = Rc4::new(key);")
+    assert any(f.bucket == Bucket.CLASSICALLY_BROKEN and f.algorithm == "DES/RC4" for f in findings)
+
+
+def test_generic_detector_rust_clean_sha256_not_flagged():
+    findings = detect_generic(Path("hash.rs"), "use sha2::Sha256;\\nlet digest = Sha256::digest(data);")
+    assert findings == []
+
+
+def test_sarif_preserves_tool_name_scanned_path_and_fingerprint_metadata():
+    findings = detect_generic(Path("crypto.rs"), "use rsa::RsaPrivateKey;")
+    payload = json.loads(to_sarif(findings, tool_name="pqc-scanner-integration", scanned_path="src"))
+    run = payload["runs"][0]
+    assert run["tool"]["driver"]["name"] == "pqc-scanner-integration"
+    assert run["properties"]["scanned_path"] == "src"
+    assert run["properties"]["finding_count"] == len(run["results"])
+    assert len(run["properties"]["finding_set_sha256"]) == 64
