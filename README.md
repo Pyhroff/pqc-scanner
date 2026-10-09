@@ -204,3 +204,10 @@ pqc-scan scan ./my-project --format sarif --output results.sarif
 ```
 
 Use the resulting file with GitHub code scanning or the companion bridge in [Quantum Collapse](https://github.com/Pyhroff/quantum-collapse), which keeps observed static findings separate from scenario assumptions. SARIF output is a reporting format; it does not by itself upload results to GitHub or certify a repository as quantum-safe.
+
+
+## Regression evaluation
+
+CI validates both a vulnerable RSA fixture and a clean AES-256/SHA-256 fixture against the official OASIS SARIF 2.1.0 JSON Schema. It also runs `scripts/evaluate_fixture_corpus.py`, which emits a JSON report with fixture-level precision/recall/F1 and confusion counts for the curated labelled fixtures.
+
+These metrics are **fixture-bucket presence metrics**, not line-level metrics and not estimates of production precision/recall. Expand the labelled corpus with representative real-world library usage and independently reviewed ground truth before making broader accuracy claims.
