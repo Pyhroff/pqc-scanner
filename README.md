@@ -211,3 +211,16 @@ Use the resulting file with GitHub code scanning or the companion bridge in [Qua
 CI validates both a vulnerable RSA fixture and a clean AES-256/SHA-256 fixture against the official OASIS SARIF 2.1.0 JSON Schema. It also runs `scripts/evaluate_fixture_corpus.py`, which emits a JSON report with fixture-level precision/recall/F1 and confusion counts for the curated labelled fixtures.
 
 These metrics are **fixture-bucket presence metrics**, not line-level metrics and not estimates of production precision/recall. Expand the labelled corpus with representative real-world library usage and independently reviewed ground truth before making broader accuracy claims.
+
+
+### Curated fixture results (CI)
+
+Latest labelled fixture-corpus run: 8 fixtures; all expected bucket labels matched.
+
+| Finding bucket | TP | FP | FN | TN | Fixture-level precision / recall / F1 |
+|---|---:|---:|---:|---:|---:|
+| Quantum-broken | 5 | 0 | 0 | 3 | 1.00 / 1.00 / 1.00 |
+| Classically-broken | 1 | 0 | 0 | 7 | 1.00 / 1.00 / 1.00 |
+| Quantum-weakened | 0 | 0 | 0 | 8 | N/A — no positive fixture |
+
+The corpus includes RSA/ECC/DH, PyCryptodome, MD5/SHA-1, clean AES-256/SHA-256, and JWT RS256 versus HS256. These values describe only the current curated fixtures. They must not be presented as real-world accuracy until a larger, independently labelled corpus is evaluated.
