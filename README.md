@@ -108,7 +108,7 @@ The Python detector tracks common import aliases and module paths structurally. 
 
 These matches are lexical heuristics: comments, strings, generated code, unusual formatting, or unsupported APIs can cause false positives or false negatives. Rust rules cover selected `rsa`, `p256`/`k256`/`p384`, OpenSSL, `ring`, `md5`, `sha1`, DES, and RC4 API spellings; they are not whole-program analysis.
 
-RSA, ECDSA/ECDH, MD5, SHA-1, TLS 1.0/1.1, RC4, DES/3DES in `.js .ts .java .kt .go .conf .cfg .yml .yaml`
+RSA, ECDSA/ECDH, MD5, SHA-1, TLS 1.0/1.1, RC4, DES/3DES in `.js .ts .java .kt .go .rs .conf .cfg .yml .yaml`
 
 ---
 
