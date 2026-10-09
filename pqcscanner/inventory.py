@@ -92,15 +92,32 @@ def _primitive(module: str, name: str) -> tuple[str, str] | None:
 
 
 def _prefix_primitive(module: str) -> tuple[str, str] | None:
+    if module == "rsa" or module.startswith("rsa."):
+        return "RSA", "quantum_broken"
+
     prefix_maps = (
         ("cryptography.hazmat.primitives.asymmetric.", _QB_ASYMMETRIC, "quantum_broken"),
-        ("rsa.", {"rsa": "RSA"}, "quantum_broken"),
+        ("Crypto.PublicKey.", _QB_PYCRYPTODOME, "quantum_broken"),
     )
     for prefix, mapping, classification in prefix_maps:
         if module.startswith(prefix):
             tail = module[len(prefix):].split(".", 1)[0].lower()
             if tail in mapping:
                 return mapping[tail], classification
+
+    if module.startswith("Crypto.Hash."):
+        tail = module[len("Crypto.Hash."):].split(".", 1)[0].lower()
+        if tail in _CLASSICALLY_BROKEN:
+            return _CLASSICALLY_BROKEN[tail], "classically_broken"
+        if tail in _KNOWN_HASHES:
+            return _KNOWN_HASHES[tail], "not_flagged_by_current_taxonomy"
+
+    if module.startswith("Crypto.Cipher."):
+        tail = module[len("Crypto.Cipher."):].split(".", 1)[0].lower()
+        if tail in _CLASSICALLY_BROKEN:
+            return _CLASSICALLY_BROKEN[tail], "classically_broken"
+        if tail in {"aes", "chacha20", "chacha20poly1305"}:
+            return tail.upper(), "parameter_context_required"
     return None
 
 
