@@ -56,12 +56,19 @@ _JOSE_ALGORITHMS = {
     **{name: (f"JWT {name.upper()} (ECDSA)", "quantum_broken") for name in
        ("es256", "es384", "es512")},
     "eddsa": ("JWT EdDSA (Ed25519/Ed448)", "quantum_broken"),
+    **{name: (f"JWT {name.upper()} (HMAC)", "parameter_context_required") for name in
+       ("hs256", "hs384", "hs512")},
 }
 _SKIP_DIRS = {".git", ".venv", "venv", "__pycache__", "node_modules", "build", "dist"}
 
 
 def _primitive(module: str, name: str) -> tuple[str, str] | None:
     lowered = name.lower()
+    if module == "hashlib":
+        if lowered in _CLASSICALLY_BROKEN:
+            return _CLASSICALLY_BROKEN[lowered], "classically_broken"
+        if lowered in _KNOWN_HASHES:
+            return _KNOWN_HASHES[lowered], "not_flagged_by_current_taxonomy"
     if module == "cryptography.hazmat.primitives.asymmetric" and lowered in _QB_ASYMMETRIC:
         return _QB_ASYMMETRIC[lowered], "quantum_broken"
     if module == "Crypto.PublicKey" and lowered in _QB_PYCRYPTODOME:
