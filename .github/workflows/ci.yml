@@ -40,6 +40,20 @@ jobs:
           python scripts/validate_sarif.py /tmp/jwt.sarif --expect-findings
       - name: Evaluate curated crypto detector fixture corpus
         run: python scripts/evaluate_fixture_corpus.py --output /tmp/fixture-evaluation.json
+      - name: Generate static crypto API inventory
+        run: |
+          pqc-scan inventory tests/fixtures --output /tmp/crypto-inventory.json
+          python - <<'PY'
+          import json
+          with open("/tmp/crypto-inventory.json", encoding="utf-8") as handle:
+              inventory = json.load(handle)
+          assert inventory["schema_version"] == "1.0"
+          assert inventory["observation_count"] > 0
+          assert inventory["by_classification"]["quantum_broken"] > 0
+          assert inventory["by_classification"]["classically_broken"] > 0
+          assert inventory["by_classification"]["parameter_context_required"] > 0
+          print(f"Crypto inventory passed: {inventory['observation_count']} observations across {inventory['files_parsed']} Python files")
+          PY
 
   package:
     name: Build package
