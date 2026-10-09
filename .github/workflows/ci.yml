@@ -38,6 +38,8 @@ jobs:
           python scripts/validate_sarif.py /tmp/vulnerable.sarif --expect-findings
           python scripts/validate_sarif.py /tmp/clean.sarif --expect-empty
           python scripts/validate_sarif.py /tmp/jwt.sarif --expect-findings
+          pqc-scan scan tests/fixtures/rust_crypto.rs --format sarif --output /tmp/rust.sarif
+          python scripts/validate_sarif.py /tmp/rust.sarif --expect-findings
       - name: Evaluate curated crypto detector fixture corpus
         run: python scripts/evaluate_fixture_corpus.py --output /tmp/fixture-evaluation.json
       - name: Generate static crypto API inventory
