@@ -18,8 +18,8 @@ import pytest
 
 from pqcscanner.detectors.python_ast import detect_python
 from pqcscanner.detectors.generic import detect_generic
-from pqcscanner.report import to_json
-from pqcscanner.taxonomy import Bucket, Severity
+from pqcscanner.report import to_json, to_sarif
+from pqcscanner.taxonomy import Bucket, Finding, Severity
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -173,3 +173,36 @@ def test_json_report_structure():
     first = report["findings"][0]
     for key in ("file", "line", "algorithm", "bucket", "severity", "context", "recommendation"):
         assert key in first, f"Missing key '{key}' in finding JSON"
+
+
+
+def test_sarif_report_uses_sarif_210_and_preserves_bridge_properties():
+    finding = Finding(
+        file=Path("src/crypto.py"),
+        line=12,
+        algorithm="RSA",
+        bucket=Bucket.QUANTUM_BROKEN,
+        severity=Severity.CRITICAL,
+        context="rsa.generate_private_key(...)",
+        recommendation="Migrate to ML-DSA for signatures or ML-KEM for key establishment.",
+    )
+    report = json.loads(to_sarif([finding], scanned_path="src"))
+    assert report["version"] == "2.1.0"
+    assert report["runs"][0]["tool"]["driver"]["name"] == "pqc-scanner"
+    result = report["runs"][0]["results"][0]
+    assert result["ruleId"] == "pqc.quantum_broken.rsa"
+    assert result["level"] == "error"
+    assert result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "src/crypto.py"
+    assert result["locations"][0]["physicalLocation"]["region"]["startLine"] == 12
+    assert result["properties"]["bucket"] == "quantum_broken"
+    assert result["properties"]["algorithm"] == "RSA"
+    assert "Recommendation:" in result["message"]["text"]
+    assert report["runs"][0]["properties"]["finding_count"] == 1
+    assert len(report["runs"][0]["properties"]["finding_set_sha256"]) == 64
+
+
+def test_sarif_report_supports_empty_findings():
+    report = json.loads(to_sarif([]))
+    assert report["version"] == "2.1.0"
+    assert report["runs"][0]["results"] == []
+    assert report["runs"][0]["properties"]["finding_count"] == 0
