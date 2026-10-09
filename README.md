@@ -9,7 +9,7 @@ pqc-scan ci ./my-service              # CI gate - exits 1 on critical findings
 ```
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-11%20passed-brightgreen?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-14%20expected-brightgreen?style=flat-square)
 ![NIST](https://img.shields.io/badge/NIST%20PQC-FIPS%20203%2F204%2F205-orange?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
@@ -147,7 +147,7 @@ This is a **static-analysis migration aid**, not a cryptographic verifier.
 - Non-Python rules are regex-based and may match comments, documentation, strings, or configuration that is not executed.
 - Python AST analysis avoids many text-matching errors but does not perform whole-program data-flow, call-graph, or reachability analysis.
 - Recommendations are migration guidance rather than drop-in replacements. Protocol role, interoperability, key management, performance, and deployment constraints still require engineering review.
-- The scanner does not certify regulatory or standards compliance.
+- The scanner does not certify regulatory or standards compliance. SHA-224 is intentionally not classified as broken: NIST lists it in the SHA-2 family in FIPS 180-4, though algorithm choice should still match the required security strength and use case.
 - NIST's finalized PQC standards are FIPS 203 (ML-KEM), FIPS 204 (ML-DSA), and FIPS 205 (SLH-DSA). FALCON/FN-DSA remains in development, while NIST selected HQC for standardization as an additional KEM in 2025. Check current NIST publications before making migration or deployment decisions.
 
 For this reason, the clean-file tests are **correctness regression tests for known inputs**, not a statistical claim of zero false positives in arbitrary codebases.
