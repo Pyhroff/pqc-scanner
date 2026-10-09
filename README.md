@@ -104,9 +104,9 @@ The Python detector tracks common import aliases and module paths structurally. 
 | `hashlib` | `hashlib.md5()`, `hashlib.sha1()`, `hashlib.new("md5", ...)` |
 | `pycryptodome` | `from Crypto.Hash import MD5/SHA1`, `from Crypto.Cipher import DES/DES3/ARC4` |
 
-### Non-Python (regex - JS, TS, Java, Kotlin, Go, config files)
+### Non-Python (regex - JS/TS, Java/Kotlin, Go, Rust, and config files)
 
-These matches are lexical heuristics: comments, strings, generated code, unusual formatting, or unsupported APIs can cause false positives or false negatives.
+These matches are lexical heuristics: comments, strings, generated code, unusual formatting, or unsupported APIs can cause false positives or false negatives. Rust rules cover selected `rsa`, `p256`/`k256`/`p384`, OpenSSL, `ring`, `md5`, `sha1`, DES, and RC4 API spellings; they are not whole-program analysis.
 
 RSA, ECDSA/ECDH, MD5, SHA-1, TLS 1.0/1.1, RC4, DES/3DES in `.js .ts .java .kt .go .conf .cfg .yml .yaml`
 
