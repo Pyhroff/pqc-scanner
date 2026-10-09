@@ -18,7 +18,7 @@ import pytest
 
 from pqcscanner.detectors.python_ast import detect_python
 from pqcscanner.detectors.generic import detect_generic
-from pqcscanner.report import to_json
+from pqcscanner.report import to_json, to_sarif
 from pqcscanner.taxonomy import Bucket, Severity
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -163,3 +163,35 @@ def test_sha224_is_not_misclassified_as_broken():
     findings = detect_python(Path("approved_hash.py"), source)
     assert not any(f.algorithm == "SHA-224" for f in findings)
     assert findings == []
+
+
+
+def test_cryptography_hash_module_alias_is_detected():
+    source = (
+        "from cryptography.hazmat.primitives import hashes as h\n"
+        "digest = h.MD5()\n"
+    )
+    findings = detect_python(Path("crypto_alias.py"), source)
+    assert any(f.bucket == Bucket.CLASSICALLY_BROKEN and f.algorithm == "MD5" for f in findings)
+
+
+def test_pycryptodome_hash_module_alias_call_is_detected():
+    source = "import Crypto.Hash as H\ndigest = H.MD5.new(data)\n"
+    findings = detect_python(Path("crypto_alias.py"), source)
+    assert any(f.bucket == Bucket.CLASSICALLY_BROKEN and "MD5" in f.algorithm for f in findings)
+
+
+def test_sarif_report_has_schema_rule_location_and_fingerprint():
+    findings = detect_python(
+        Path("sample.py"),
+        "from cryptography.hazmat.primitives import hashes as h\ndigest = h.MD5()\n",
+    )
+    payload = json.loads(to_sarif(findings))
+    assert payload["version"] == "2.1.0"
+    run = payload["runs"][0]
+    assert run["tool"]["driver"]["name"] == "pqc-scanner"
+    assert run["results"]
+    result = run["results"][0]
+    assert result["ruleId"].startswith("pqc.classically_broken.")
+    assert result["locations"][0]["physicalLocation"]["region"]["startLine"] >= 1
+    assert result["partialFingerprints"]["primaryLocationLineHash"]
