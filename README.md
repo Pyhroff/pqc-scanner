@@ -224,3 +224,15 @@ Latest labelled fixture-corpus run: 8 fixtures; all expected bucket labels match
 | Quantum-weakened | 0 | 0 | 0 | 8 | N/A — no positive fixture |
 
 The corpus includes RSA/ECC/DH, PyCryptodome, MD5/SHA-1, clean AES-256/SHA-256, and JWT RS256 versus HS256. These values describe only the current curated fixtures. They must not be presented as real-world accuracy until a larger, independently labelled corpus is evaluated.
+
+
+## Static crypto inventory
+
+Run `pqc-scan inventory ./src --output crypto-inventory.json` to inventory recognized Python crypto API observations. Each record includes source file/line, API, algorithm, context line, and a classification:
+
+- `quantum_broken`: public-key algorithms affected by Shor's algorithm, including literal JWT RS/PS/ES/EdDSA choices.
+- `classically_broken`: examples such as MD5, SHA-1, DES, and RC4.
+- `parameter_context_required`: primitives such as AES or HMAC JWTs where key size, entropy, configuration, or deployment context matters.
+- `not_flagged_by_current_taxonomy`: recognized hash APIs not classified as broken by this scanner.
+
+This is a static, Python-only inventory. Dynamic algorithm names, indirect wrappers, key lengths, configuration, non-Python code, and runtime-loaded cryptography may be missed. A recognized API is an observation, not proof of a vulnerability or proof of safety.
