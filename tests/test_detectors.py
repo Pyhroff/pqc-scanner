@@ -268,3 +268,16 @@ def test_crypto_inventory_resolves_hashlib_aliases():
         and item["api"] == "hashlib.sha1"
         for item in report["observations"]
     )
+
+
+
+def test_crypto_inventory_resolves_module_aliases(tmp_path):
+    source = tmp_path / "aliases.py"
+    source.write_text("import hashlib as h\nh.sha1(data)\n", encoding="utf-8")
+    report = build_inventory(source)
+    assert any(
+        item["algorithm"] == "SHA-1"
+        and item["classification"] == "classically_broken"
+        and item["api"] == "hashlib.sha1"
+        for item in report["observations"]
+    )
