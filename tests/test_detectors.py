@@ -214,3 +214,31 @@ def test_vulnerable_fixture_sarif_preserves_bucket_and_algorithm():
         and "RSA" in result.get("properties", {}).get("algorithm", "")
         for result in results
     )
+
+
+
+def test_pyjwt_rs256_signing_is_quantum_broken():
+    findings = _scan("vulnerable_jwt.py")
+    assert any(
+        finding.bucket == Bucket.QUANTUM_BROKEN
+        and "RS256" in finding.algorithm
+        for finding in findings
+    )
+
+
+def test_pyjwt_hs256_is_not_misclassified_as_shor_broken():
+    findings = _scan("clean_jwt_hs256.py")
+    assert not any(f.bucket == Bucket.QUANTUM_BROKEN for f in findings)
+
+
+def test_python_jose_ecdsa_verification_algorithms_are_detected():
+    source = (
+        "from jose import jwt\n"
+        "claims = jwt.decode(token, key, algorithms=['ES256', 'HS256'])\n"
+    )
+    findings = detect_python(Path("jose_usage.py"), source)
+    assert any(
+        f.bucket == Bucket.QUANTUM_BROKEN and "ES256" in f.algorithm
+        for f in findings
+    )
+    assert not any("HS256" in f.algorithm for f in findings)
