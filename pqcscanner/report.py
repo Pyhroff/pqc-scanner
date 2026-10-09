@@ -193,7 +193,6 @@ def to_sarif(
         fingerprint_source = f"{file_uri}\n{finding.line}\n{rule_id}\n{finding.context}"
         result = {
             "ruleId": rule_id,
-            "ruleIndex": list(rules).index(rule_id),
             "level": level,
             "message": {"text": f"{finding.algorithm}: {finding.recommendation}"},
             "locations": [{
