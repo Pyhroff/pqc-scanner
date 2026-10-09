@@ -4,7 +4,7 @@
 
 ```bash
 pqc-scan scan ./my-service            # find all vulnerable crypto
-pqc-scan scan ./my-service -f html    # generate HTML report
+pqc-scan scan ./my-service -f html    # generate HTML report\npqc-scan scan ./my-service -f sarif -o report.sarif  # SARIF 2.1.0 for CI/integration
 pqc-scan ci ./my-service              # CI gate - exits 1 on critical findings
 ```
 
@@ -73,7 +73,7 @@ pqc-scan ci ./my-project --fail-on critical --json
 ```
 pqc-scan scan PATH [OPTIONS]
 
-  --format        -f   text | json | html         [default: text]
+  --format        -f   text | json | html | sarif         [default: text]
   --output        -o   Write to file               [default: stdout]
   --min-severity       critical | warning | informational  [default: warning]
 ```
@@ -188,3 +188,21 @@ NIST PQC (Aug 2024): ML-KEM FIPS 203 · ML-DSA FIPS 204 · SLH-DSA FIPS 205
 ## License
 
 MIT - see [LICENSE](LICENSE).
+
+
+## SARIF output and Quantum Collapse integration
+
+Generate a SARIF 2.1.0 report for GitHub/code-scanning-style consumers or the
+Quantum Collapse scenario bridge:
+
+```bash
+pqc-scan scan ./my-service --format sarif --output report.sarif
+python -m quantum_collapse.pqc_scanner_integration report.sarif --output scenario.json
+```
+
+The SARIF report carries the scanner's bucket, algorithm, severity, recommendation,
+source URI and line number. Its finding-set SHA-256 is a reproducibility fingerprint,
+not a signature or authenticity guarantee. The downstream bridge must treat findings
+as observed static-analysis evidence and migration percentages, criticality weights,
+and risk scores as model assumptions; it must not infer service dependencies from
+source paths. Static findings alone do not prove runtime reachability or deployed use.
