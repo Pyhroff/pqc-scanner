@@ -75,7 +75,7 @@ def inventory(
     report = build_inventory(path)
     rendered = json.dumps(report, indent=2, sort_keys=True)
     if output:
-        output.write_text(rendered + "\\n", encoding="utf-8")
+        output.write_text(rendered + "\n", encoding="utf-8")
         _console.print(f"[green]Crypto inventory → {output}[/]")
     else:
         print(rendered)
