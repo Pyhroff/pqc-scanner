@@ -19,6 +19,7 @@ import pytest
 from pqcscanner.detectors.python_ast import detect_python
 from pqcscanner.detectors.generic import detect_generic
 from pqcscanner.report import to_json, to_sarif
+from pqcscanner.inventory import build_inventory
 from pqcscanner.taxonomy import Bucket, Severity
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -242,3 +243,28 @@ def test_python_jose_ecdsa_verification_algorithms_are_detected():
         for f in findings
     )
     assert not any("HS256" in f.algorithm for f in findings)
+
+
+
+def test_crypto_inventory_separates_asymmetric_hash_and_keysize_context():
+    report = build_inventory(FIXTURES)
+    observed = {
+        (item["algorithm"], item["classification"])
+        for item in report["observations"]
+    }
+    assert report["schema_version"] == "1.0"
+    assert report["files_parsed"] == 8
+    assert ("JWT RS256 (RSA)", "quantum_broken") in observed
+    assert ("JWT HS256 (HMAC)", "parameter_context_required") in observed
+    assert ("SHA-256", "not_flagged_by_current_taxonomy") in observed
+    assert ("AES", "parameter_context_required") in observed
+
+
+def test_crypto_inventory_resolves_hashlib_aliases():
+    report = build_inventory(FIXTURES)
+    assert any(
+        item["algorithm"] == "SHA-1"
+        and item["classification"] == "classically_broken"
+        and item["api"] == "hashlib.sha1"
+        for item in report["observations"]
+    )
