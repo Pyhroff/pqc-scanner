@@ -171,10 +171,10 @@ def to_sarif(findings: list[Finding], scanned_path: str = "") -> str:
         if rid not in rules_by_id:
             rules_by_id[rid] = {
                 "id": rid,
-                "name": f.algorithm,
+                "name": finding.algorithm,
                 "shortDescription": {"text": f"{finding.algorithm} finding ({finding.bucket.value})"},
-                "defaultConfiguration": {"level": level_map.get(f.severity, "note")},
-                "properties": {"bucket": f.bucket.value, "algorithm": f.algorithm},
+                "defaultConfiguration": {"level": level_map.get(finding.severity, "note")},
+                "properties": {"bucket": finding.bucket.value, "algorithm": finding.algorithm},
             }
         rule_index = list(rules_by_id).index(rid)
         uri = Path(finding.file).as_posix()
