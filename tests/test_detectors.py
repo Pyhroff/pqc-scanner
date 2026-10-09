@@ -144,3 +144,22 @@ def test_json_report_structure():
     first = report["findings"][0]
     for key in ("file", "line", "algorithm", "bucket", "severity", "context", "recommendation"):
         assert key in first, f"Missing key '{key}' in finding JSON"
+
+
+def test_direct_imported_hash_alias_is_detected():
+    source = "from hashlib import md5 as legacy_hash\nlegacy_hash(data)\n"
+    findings = detect_python(Path("alias_hash.py"), source)
+    assert any(f.algorithm == "MD5" and f.line == 2 for f in findings)
+
+
+def test_module_alias_hash_call_is_detected():
+    source = "import hashlib as h\nh.sha1(data)\n"
+    findings = detect_python(Path("alias_hash.py"), source)
+    assert any(f.algorithm == "SHA-1" and f.line == 2 for f in findings)
+
+
+def test_sha224_is_not_misclassified_as_broken():
+    source = "import hashlib\nhashlib.sha224(data)\n"
+    findings = detect_python(Path("approved_hash.py"), source)
+    assert not any(f.algorithm == "SHA-224" for f in findings)
+    assert findings == []
