@@ -195,3 +195,22 @@ def test_sarif_report_has_schema_rule_location_and_fingerprint():
     assert result["ruleId"].startswith("pqc.classically_broken.")
     assert result["locations"][0]["physicalLocation"]["region"]["startLine"] >= 1
     assert result["partialFingerprints"]["primaryLocationLineHash"]
+
+
+def test_clean_fixture_produces_empty_sarif_results():
+    findings = _scan("clean_pqc.py")
+    payload = json.loads(to_sarif(findings))
+    assert payload["version"] == "2.1.0"
+    assert payload["runs"][0]["results"] == []
+
+
+def test_vulnerable_fixture_sarif_preserves_bucket_and_algorithm():
+    findings = _scan("vulnerable_rsa.py")
+    payload = json.loads(to_sarif(findings))
+    results = payload["runs"][0]["results"]
+    assert results
+    assert any(
+        result.get("properties", {}).get("bucket") == Bucket.QUANTUM_BROKEN.value
+        and "RSA" in result.get("properties", {}).get("algorithm", "")
+        for result in results
+    )
