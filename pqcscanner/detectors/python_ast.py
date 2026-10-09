@@ -226,31 +226,36 @@ class _CryptoVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
-        # Catch direct imports such as:
-        #   from hashlib import md5 as legacy_hash
-        #   legacy_hash(data)
-        if isinstance(node.func, ast.Name):
-            resolved = self._aliases.get(node.func.id, "")
-            if resolved.startswith("hashlib."):
-                name = resolved.rsplit(".", 1)[-1].lower()
+        # Resolve aliases and dotted module paths for hashlib, PyCryptodome,
+        # and cryptography. This intentionally remains syntactic, not data-flow.
+        resolved = self._resolve_dotted_name(node.func)
+        lowered = resolved.lower()
+
+        if lowered.startswith("hashlib."):
+            name = lowered.rsplit(".", 1)[-1]
+            if name == "new" and node.args and isinstance(node.args[0], ast.Constant):
+                self._add_hash_finding(str(node.args[0].value).lower(), node.lineno)
+            else:
                 self._add_hash_finding(name, node.lineno)
 
-        elif isinstance(node.func, ast.Attribute):
-            attr = node.func.attr
-            obj_id = ""
-            if isinstance(node.func.value, ast.Name):
-                obj_id = node.func.value.id
+        elif lowered.startswith("crypto.hash."):
+            # PyCryptodome factories are commonly called as MD5.new(...) / SHA1.new(...).
+            parts = lowered.split(".")
+            if len(parts) >= 4 and parts[-1] == "new":
+                self._add_hash_finding(parts[-2], node.lineno)
 
-            resolved = self._aliases.get(obj_id, obj_id)
-
-            # hashlib.<hash>() and hashlib.new('<hash>'), including module aliases.
-            if resolved == "hashlib":
-                if attr in _HASHLIB_CB:
-                    self._add_hash_finding(attr, node.lineno)
-                elif attr == "new" and node.args and isinstance(node.args[0], ast.Constant):
-                    self._add_hash_finding(str(node.args[0].value).lower(), node.lineno)
+        elif lowered.startswith("cryptography.hazmat.primitives.hashes."):
+            self._add_hash_finding(lowered.rsplit(".", 1)[-1], node.lineno)
 
         self.generic_visit(node)
+
+    def _resolve_dotted_name(self, node: ast.AST) -> str:
+        if isinstance(node, ast.Name):
+            return self._aliases.get(node.id, node.id)
+        if isinstance(node, ast.Attribute):
+            parent = self._resolve_dotted_name(node.value)
+            return f"{parent}.{node.attr}" if parent else node.attr
+        return ""
 
     def _add_hash_finding(self, name: str, lineno: int) -> None:
         match = _HASHLIB_CB.get(name)
