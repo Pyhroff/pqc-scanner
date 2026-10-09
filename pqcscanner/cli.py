@@ -1,5 +1,6 @@
 """pqc-scan CLI — scan and ci commands."""
 
+import json
 import sys
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from rich.console import Console
 from pqcscanner.scanner import scan_path
 from pqcscanner.taxonomy import Bucket, Severity
 from pqcscanner.report import print_text_report, to_json, to_html, to_sarif
+from pqcscanner.inventory import build_inventory
 
 app = typer.Typer(
     help=(
@@ -61,6 +63,22 @@ def scan(
     else:
         print_text_report(findings, _console)
 
+    raise typer.Exit(0)
+
+
+@app.command()
+def inventory(
+    path: Path = typer.Argument(..., help="Python file or project directory to inventory", exists=True),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Write JSON inventory to this file"),
+) -> None:
+    """Build a static inventory of known cryptographic API observations in Python."""
+    report = build_inventory(path)
+    rendered = json.dumps(report, indent=2, sort_keys=True)
+    if output:
+        output.write_text(rendered + "\\n", encoding="utf-8")
+        _console.print(f"[green]Crypto inventory → {output}[/]")
+    else:
+        print(rendered)
     raise typer.Exit(0)
 
 
