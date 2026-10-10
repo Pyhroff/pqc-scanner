@@ -18,8 +18,8 @@ import pytest
 
 from pqcscanner.detectors.python_ast import detect_python
 from pqcscanner.detectors.generic import detect_generic
-from pqcscanner.report import to_json
-from pqcscanner.taxonomy import Bucket, Severity
+from pqcscanner.report import to_json, to_sarif
+from pqcscanner.taxonomy import Bucket, Finding, Severity
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -130,6 +130,35 @@ byte[] digest = md.digest();
     assert len(cb) >= 1, "MD5 in Java must be detected as CLASSICALLY_BROKEN"
 
 
+
+# ── RUST CRYPTO API COVERAGE ──────────────────────────────────────────────────
+
+def test_generic_detector_rust_rsa_api():
+    source = "use rsa::RsaPrivateKey;\nlet key = RsaPrivateKey::new(&mut rng, 2048)?;"
+    findings = detect_generic(Path("crypto.rs"), source)
+    qb = [f for f in findings if f.bucket == Bucket.QUANTUM_BROKEN]
+    assert any(f.algorithm == "RSA" for f in qb)
+
+
+def test_generic_detector_rust_ecdh_api():
+    source = "use p256::ecdh::EphemeralSecret;\nlet secret = EphemeralSecret::random(&mut rng);"
+    findings = detect_generic(Path("exchange.rs"), source)
+    qb = [f for f in findings if f.bucket == Bucket.QUANTUM_BROKEN]
+    assert any("ECDH" in f.algorithm or "ECC" in f.algorithm for f in qb)
+
+
+def test_generic_detector_rust_sha1_api():
+    source = "use sha1::Sha1;\nlet digest = Sha1::new();"
+    findings = detect_generic(Path("hash.rs"), source)
+    cb = [f for f in findings if f.bucket == Bucket.CLASSICALLY_BROKEN]
+    assert any(f.algorithm == "SHA-1" for f in cb)
+
+
+def test_generic_detector_rust_clean_sha256_not_flagged():
+    source = "use sha2::Sha256;\nlet digest = Sha256::digest(data);"
+    findings = detect_generic(Path("hash.rs"), source)
+    assert findings == []
+
 # ── JSON REPORT STRUCTURE ─────────────────────────────────────────────────────
 
 def test_json_report_structure():
@@ -144,3 +173,36 @@ def test_json_report_structure():
     first = report["findings"][0]
     for key in ("file", "line", "algorithm", "bucket", "severity", "context", "recommendation"):
         assert key in first, f"Missing key '{key}' in finding JSON"
+
+
+
+def test_sarif_report_uses_sarif_210_and_preserves_bridge_properties():
+    finding = Finding(
+        file=Path("src/crypto.py"),
+        line=12,
+        algorithm="RSA",
+        bucket=Bucket.QUANTUM_BROKEN,
+        severity=Severity.CRITICAL,
+        context="rsa.generate_private_key(...)",
+        recommendation="Migrate to ML-DSA for signatures or ML-KEM for key establishment.",
+    )
+    report = json.loads(to_sarif([finding], scanned_path="src"))
+    assert report["version"] == "2.1.0"
+    assert report["runs"][0]["tool"]["driver"]["name"] == "pqc-scanner"
+    result = report["runs"][0]["results"][0]
+    assert result["ruleId"] == "pqc.quantum_broken.rsa"
+    assert result["level"] == "error"
+    assert result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "src/crypto.py"
+    assert result["locations"][0]["physicalLocation"]["region"]["startLine"] == 12
+    assert result["properties"]["bucket"] == "quantum_broken"
+    assert result["properties"]["algorithm"] == "RSA"
+    assert "Recommendation:" in result["message"]["text"]
+    assert report["runs"][0]["properties"]["finding_count"] == 1
+    assert len(report["runs"][0]["properties"]["finding_set_sha256"]) == 64
+
+
+def test_sarif_report_supports_empty_findings():
+    report = json.loads(to_sarif([]))
+    assert report["version"] == "2.1.0"
+    assert report["runs"][0]["results"] == []
+    assert report["runs"][0]["properties"]["finding_count"] == 0
