@@ -18,7 +18,8 @@ import pytest
 
 from pqcscanner.detectors.python_ast import detect_python
 from pqcscanner.detectors.generic import detect_generic
-from pqcscanner.report import to_json
+from pqcscanner.report import to_json, to_sarif
+from pqcscanner.inventory import build_inventory
 from pqcscanner.taxonomy import Bucket, Severity
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -144,3 +145,151 @@ def test_json_report_structure():
     first = report["findings"][0]
     for key in ("file", "line", "algorithm", "bucket", "severity", "context", "recommendation"):
         assert key in first, f"Missing key '{key}' in finding JSON"
+
+
+def test_direct_imported_hash_alias_is_detected():
+    source = "from hashlib import md5 as legacy_hash\nlegacy_hash(data)\n"
+    findings = detect_python(Path("alias_hash.py"), source)
+    assert any(f.algorithm == "MD5" and f.line == 2 for f in findings)
+
+
+def test_module_alias_hash_call_is_detected():
+    source = "import hashlib as h\nh.sha1(data)\n"
+    findings = detect_python(Path("alias_hash.py"), source)
+    assert any(f.algorithm == "SHA-1" and f.line == 2 for f in findings)
+
+
+def test_sha224_is_not_misclassified_as_broken():
+    source = "import hashlib\nhashlib.sha224(data)\n"
+    findings = detect_python(Path("approved_hash.py"), source)
+    assert not any(f.algorithm == "SHA-224" for f in findings)
+    assert findings == []
+
+
+
+def test_cryptography_hash_module_alias_is_detected():
+    source = (
+        "from cryptography.hazmat.primitives import hashes as h\n"
+        "digest = h.MD5()\n"
+    )
+    findings = detect_python(Path("crypto_alias.py"), source)
+    assert any(f.bucket == Bucket.CLASSICALLY_BROKEN and f.algorithm == "MD5" for f in findings)
+
+
+def test_pycryptodome_hash_module_alias_call_is_detected():
+    source = "import Crypto.Hash as H\ndigest = H.MD5.new(data)\n"
+    findings = detect_python(Path("crypto_alias.py"), source)
+    assert any(f.bucket == Bucket.CLASSICALLY_BROKEN and "MD5" in f.algorithm for f in findings)
+
+
+def test_sarif_report_has_schema_rule_location_and_fingerprint():
+    findings = detect_python(
+        Path("sample.py"),
+        "from cryptography.hazmat.primitives import hashes as h\ndigest = h.MD5()\n",
+    )
+    payload = json.loads(to_sarif(findings))
+    assert payload["version"] == "2.1.0"
+    run = payload["runs"][0]
+    assert run["tool"]["driver"]["name"] == "pqc-scanner"
+    assert run["results"]
+    result = run["results"][0]
+    assert result["ruleId"].startswith("pqc.classically_broken.")
+    assert result["locations"][0]["physicalLocation"]["region"]["startLine"] >= 1
+    assert result["partialFingerprints"]["primaryLocationLineHash"]
+
+
+def test_clean_fixture_produces_empty_sarif_results():
+    findings = _scan("clean_pqc.py")
+    payload = json.loads(to_sarif(findings))
+    assert payload["version"] == "2.1.0"
+    assert payload["runs"][0]["results"] == []
+
+
+def test_vulnerable_fixture_sarif_preserves_bucket_and_algorithm():
+    findings = _scan("vulnerable_rsa.py")
+    payload = json.loads(to_sarif(findings))
+    results = payload["runs"][0]["results"]
+    assert results
+    assert any(
+        result.get("properties", {}).get("bucket") == Bucket.QUANTUM_BROKEN.value
+        and "RSA" in result.get("properties", {}).get("algorithm", "")
+        for result in results
+    )
+
+
+
+def test_pyjwt_rs256_signing_is_quantum_broken():
+    findings = _scan("vulnerable_jwt.py")
+    assert any(
+        finding.bucket == Bucket.QUANTUM_BROKEN
+        and "RS256" in finding.algorithm
+        for finding in findings
+    )
+
+
+def test_pyjwt_hs256_is_not_misclassified_as_shor_broken():
+    findings = _scan("clean_jwt_hs256.py")
+    assert not any(f.bucket == Bucket.QUANTUM_BROKEN for f in findings)
+
+
+def test_python_jose_ecdsa_verification_algorithms_are_detected():
+    source = (
+        "from jose import jwt\n"
+        "claims = jwt.decode(token, key, algorithms=['ES256', 'HS256'])\n"
+    )
+    findings = detect_python(Path("jose_usage.py"), source)
+    assert any(
+        f.bucket == Bucket.QUANTUM_BROKEN and "ES256" in f.algorithm
+        for f in findings
+    )
+    assert not any("HS256" in f.algorithm for f in findings)
+
+
+
+def test_crypto_inventory_separates_asymmetric_hash_and_keysize_context():
+    report = build_inventory(FIXTURES)
+    observed = {
+        (item["algorithm"], item["classification"])
+        for item in report["observations"]
+    }
+    assert report["schema_version"] == "1.0"
+    assert report["files_parsed"] >= 8  # includes fixture package metadata such as __init__.py
+    assert ("JWT RS256 (RSA)", "quantum_broken") in observed
+    assert ("JWT HS256 (HMAC)", "parameter_context_required") in observed
+    assert ("SHA-256", "not_flagged_by_current_taxonomy") in observed
+    assert ("AES", "parameter_context_required") in observed
+
+
+def test_crypto_inventory_resolves_hashlib_aliases():
+    report = build_inventory(FIXTURES)
+    assert any(
+        item["algorithm"] == "SHA-1"
+        and item["classification"] == "classically_broken"
+        and item["api"] == "hashlib.sha1"
+        for item in report["observations"]
+    )
+
+
+
+def test_crypto_inventory_resolves_module_aliases(tmp_path):
+    source = tmp_path / "aliases.py"
+    source.write_text("import hashlib as h\nh.sha1(data)\n", encoding="utf-8")
+    report = build_inventory(source)
+    assert any(
+        item["algorithm"] == "SHA-1"
+        and item["classification"] == "classically_broken"
+        and item["api"] == "hashlib.sha1"
+        for item in report["observations"]
+    )
+
+
+
+def test_crypto_inventory_resolves_fully_qualified_pycryptodome_import(tmp_path):
+    source = tmp_path / "pycryptodome_alias.py"
+    source.write_text("import Crypto.PublicKey.RSA as rsa_module\n", encoding="utf-8")
+    report = build_inventory(source)
+    assert any(
+        item["algorithm"] == "RSA"
+        and item["classification"] == "quantum_broken"
+        for item in report["observations"]
+    )
