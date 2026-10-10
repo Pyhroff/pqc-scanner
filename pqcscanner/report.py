@@ -1,6 +1,8 @@
 """Output formatters: text (Rich), JSON, HTML."""
 
+import hashlib
 import json
+import re
 from pathlib import Path
 
 from rich import box
@@ -148,3 +150,89 @@ a{{color:#79c0ff}}
 </div>
 </body>
 </html>"""
+
+
+
+
+def to_sarif(
+    findings: list[Finding],
+    tool_name: str = "pqc-scanner",
+    scanned_path: str = "",
+) -> str:
+    """Serialize findings as SARIF 2.1.0 with stable IDs and bridge metadata."""
+    rules: dict[str, dict] = {}
+    results: list[dict] = []
+    severity_map = {
+        Severity.CRITICAL: ("error", "9.5"),
+        Severity.WARNING: ("warning", "6.5"),
+        Severity.INFORMATIONAL: ("note", "3.0"),
+    }
+
+    for finding in findings:
+        slug = re.sub(r"[^a-z0-9]+", "-", finding.algorithm.lower()).strip("-") or "crypto"
+        rule_id = f"pqc.{finding.bucket.value}.{slug}"
+        level, security_severity = severity_map.get(finding.severity, ("note", "3.0"))
+        rules.setdefault(rule_id, {
+            "id": rule_id,
+            "name": slug.replace("-", " ").title(),
+            "shortDescription": {
+                "text": f"{finding.bucket.value.replace('_', ' ').title()}: {finding.algorithm}"
+            },
+            "fullDescription": {"text": finding.recommendation},
+            "help": {"text": finding.recommendation, "markdown": finding.recommendation},
+            "defaultConfiguration": {"level": level},
+            "properties": {
+                "tags": ["security", "cryptography", "post-quantum"],
+                "precision": "medium",
+                "security-severity": security_severity,
+                "bucket": finding.bucket.value,
+                "algorithm": finding.algorithm,
+            },
+        })
+        file_uri = Path(finding.file).as_posix()
+        fingerprint_source = f"{file_uri}\n{finding.line}\n{rule_id}\n{finding.context}"
+        result = {
+            "ruleId": rule_id,
+            "level": level,
+            "message": {"text": f"{finding.algorithm}: {finding.recommendation}"},
+            "locations": [{
+                "physicalLocation": {
+                    "artifactLocation": {"uri": file_uri},
+                    "region": {"startLine": max(1, int(finding.line))},
+                }
+            }],
+            "partialFingerprints": {
+                "primaryLocationLineHash": hashlib.sha256(
+                    fingerprint_source.encode("utf-8")
+                ).hexdigest()
+            },
+            "properties": {
+                "bucket": finding.bucket.value,
+                "algorithm": finding.algorithm,
+                "context": finding.context,
+                "recommendation": finding.recommendation,
+                "evidence_type": "static_source_code_finding",
+            },
+        }
+        results.append(result)
+
+    payload = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {
+                "name": tool_name,
+                "informationUri": "https://github.com/Pyhroff/pqc-scanner",
+                "rules": [rules[k] for k in sorted(rules)],
+            }},
+            "results": results,
+            "properties": {
+                "scanned_path": scanned_path,
+                "finding_count": len(results),
+                "finding_set_sha256": hashlib.sha256(
+                    json.dumps(results, sort_keys=True, separators=(",", ":")).encode("utf-8")
+                ).hexdigest(),
+            },
+        }],
+    }
+    return json.dumps(payload, indent=2, ensure_ascii=False)

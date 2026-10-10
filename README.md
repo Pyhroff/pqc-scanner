@@ -5,11 +5,12 @@
 ```bash
 pqc-scan scan ./my-service            # find all vulnerable crypto
 pqc-scan scan ./my-service -f html    # generate HTML report
+pqc-scan scan ./my-service -f sarif -o results.sarif  # GitHub code-scanning format
 pqc-scan ci ./my-service              # CI gate - exits 1 on critical findings
 ```
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-11%20passed-brightgreen?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-32%20passed-brightgreen?style=flat-square)
 ![NIST](https://img.shields.io/badge/NIST%20PQC-FIPS%20203%2F204%2F205-orange?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
@@ -60,6 +61,9 @@ pqc-scan scan ./my-project
 # HTML report
 pqc-scan scan ./my-project --format html --output report.html
 
+# SARIF 2.1.0 for GitHub code scanning / downstream tooling
+pqc-scan scan ./my-project --format sarif --output results.sarif
+
 # CI/CD gate (exits 1 if critical findings)
 pqc-scan ci ./my-project --fail-on critical --json
 ```
@@ -73,7 +77,7 @@ pqc-scan ci ./my-project --fail-on critical --json
 ```
 pqc-scan scan PATH [OPTIONS]
 
-  --format        -f   text | json | html         [default: text]
+  --format        -f   text | json | html | sarif  [default: text]
   --output        -o   Write to file               [default: stdout]
   --min-severity       critical | warning | informational  [default: warning]
 ```
@@ -101,14 +105,17 @@ The Python detector tracks common import aliases and module paths structurally. 
 |---------|------------------|
 | `cryptography` | `from ...asymmetric import rsa/ec/dh/dsa/ed25519/x25519` |
 | `pycryptodome` | `from Crypto.PublicKey import RSA/ECC/DSA/ElGamal` |
-| `hashlib` | `hashlib.md5()`, `hashlib.sha1()`, `hashlib.new("md5", ...)` |
-| `pycryptodome` | `from Crypto.Hash import MD5/SHA1`, `from Crypto.Cipher import DES/DES3/ARC4` |
+| `hashlib` | `hashlib.md5()`, `hashlib.sha1()`, `hashlib.new("md5", ...)`, direct/module aliases |
+| `cryptography` | `cryptography.hazmat.primitives.hashes.MD5/SHA1` factories and imported module aliases |
+| `pycryptodome` | `from Crypto.Hash import MD5/SHA1`, `Crypto.Hash.MD5.new(...)` / `SHA1.new(...)` through module aliases, `from Crypto.Cipher import DES/DES3/ARC4` |
 
-### Non-Python (regex - JS, TS, Java, Kotlin, Go, config files)
+### Non-Python (regex - JS/TS, Java/Kotlin, Go, Rust, and config files)
 
 These matches are lexical heuristics: comments, strings, generated code, unusual formatting, or unsupported APIs can cause false positives or false negatives.
 
-RSA, ECDSA/ECDH, MD5, SHA-1, TLS 1.0/1.1, RC4, DES/3DES in `.js .ts .java .kt .go .conf .cfg .yml .yaml`
+Rust rules cover selected `rsa`, `p256`/`k256`/`p384`, OpenSSL, and `ring` key/signature APIs, plus `md5`, `sha1`, DES, and RC4 crate spellings. They are line-oriented lexical heuristics and may match comments or strings; they do not establish reachability or runtime use.
+
+RSA, ECDSA/ECDH, MD5, SHA-1, TLS 1.0/1.1, RC4, DES/3DES in `.js .ts .java .kt .go .rs .conf .cfg .yml .yaml`
 
 ---
 
@@ -120,13 +127,13 @@ pqc-scanner/
 │   ├── taxonomy.py          # Bucket + Severity enums, Finding dataclass
 │   ├── scanner.py           # File walker, dispatches by extension
 │   ├── cli.py               # Typer CLI (scan, ci)
-│   ├── report.py            # text (Rich) · JSON · HTML output
+│   ├── report.py            # text (Rich) · JSON · HTML · SARIF 2.1.0 output
 │   └── detectors/
 │       ├── python_ast.py    # AST-based Python detector
 │       ├── generic.py       # Regex detector for non-Python files
 │       └── rules.yaml       # Detection rules (JS, Java, Go, config)
 └── tests/
-    ├── test_detectors.py    # 11 tests
+    ├── test_detectors.py    # detector, alias, JSON and SARIF regression tests
     └── fixtures/
         ├── vulnerable_rsa.py
         ├── vulnerable_ecc.py
@@ -147,7 +154,7 @@ This is a **static-analysis migration aid**, not a cryptographic verifier.
 - Non-Python rules are regex-based and may match comments, documentation, strings, or configuration that is not executed.
 - Python AST analysis avoids many text-matching errors but does not perform whole-program data-flow, call-graph, or reachability analysis.
 - Recommendations are migration guidance rather than drop-in replacements. Protocol role, interoperability, key management, performance, and deployment constraints still require engineering review.
-- The scanner does not certify regulatory or standards compliance.
+- The scanner does not certify regulatory or standards compliance. SHA-224 is intentionally not classified as broken: NIST lists it in the SHA-2 family in FIPS 180-4, though algorithm choice should still match the required security strength and use case.
 - NIST's finalized PQC standards are FIPS 203 (ML-KEM), FIPS 204 (ML-DSA), and FIPS 205 (SLH-DSA). FALCON/FN-DSA remains in development, while NIST selected HQC for standardization as an additional KEM in 2025. Check current NIST publications before making migration or deployment decisions.
 
 For this reason, the clean-file tests are **correctness regression tests for known inputs**, not a statistical claim of zero false positives in arbitrary codebases.
@@ -188,3 +195,46 @@ NIST PQC (Aug 2024): ML-KEM FIPS 203 · ML-DSA FIPS 204 · SLH-DSA FIPS 205
 ## License
 
 MIT - see [LICENSE](LICENSE).
+
+
+### SARIF integration
+
+The `sarif` format emits SARIF 2.1.0 with stable rule identifiers, source locations, severity levels, fingerprints, and finding properties:
+
+```bash
+pqc-scan scan ./my-project --format sarif --output results.sarif
+```
+
+Use the resulting file with GitHub code scanning or the companion bridge in [Quantum Collapse](https://github.com/Pyhroff/quantum-collapse), which keeps observed static findings separate from scenario assumptions. SARIF output is a reporting format; it does not by itself upload results to GitHub or certify a repository as quantum-safe.
+
+
+## Regression evaluation
+
+CI validates both a vulnerable RSA fixture and a clean AES-256/SHA-256 fixture against the official OASIS SARIF 2.1.0 JSON Schema. It also runs `scripts/evaluate_fixture_corpus.py`, which emits a JSON report with fixture-level precision/recall/F1 and confusion counts for the curated labelled fixtures.
+
+These metrics are **fixture-bucket presence metrics**, not line-level metrics and not estimates of production precision/recall. Expand the labelled corpus with representative real-world library usage and independently reviewed ground truth before making broader accuracy claims.
+
+
+### Curated fixture results (CI)
+
+Latest labelled fixture-corpus run: 8 fixtures; all expected bucket labels matched.
+
+| Finding bucket | TP | FP | FN | TN | Fixture-level precision / recall / F1 |
+|---|---:|---:|---:|---:|---:|
+| Quantum-broken | 5 | 0 | 0 | 3 | 1.00 / 1.00 / 1.00 |
+| Classically-broken | 1 | 0 | 0 | 7 | 1.00 / 1.00 / 1.00 |
+| Quantum-weakened | 0 | 0 | 0 | 8 | N/A — no positive fixture |
+
+The corpus includes RSA/ECC/DH, PyCryptodome, MD5/SHA-1, clean AES-256/SHA-256, and JWT RS256 versus HS256. These values describe only the current curated fixtures. They must not be presented as real-world accuracy until a larger, independently labelled corpus is evaluated.
+
+
+## Static crypto inventory
+
+Run `pqc-scan inventory ./src --output crypto-inventory.json` to inventory recognized Python crypto API observations. Each record includes source file/line, API, algorithm, context line, and a classification:
+
+- `quantum_broken`: public-key algorithms affected by Shor's algorithm, including literal JWT RS/PS/ES/EdDSA choices.
+- `classically_broken`: examples such as MD5, SHA-1, DES, and RC4.
+- `parameter_context_required`: primitives such as AES or HMAC JWTs where key size, entropy, configuration, or deployment context matters.
+- `not_flagged_by_current_taxonomy`: recognized hash APIs not classified as broken by this scanner.
+
+This is a static, Python-only inventory. Dynamic algorithm names, indirect wrappers, key lengths, configuration, non-Python code, and runtime-loaded cryptography may be missed. A recognized API is an observation, not proof of a vulnerability or proof of safety.
