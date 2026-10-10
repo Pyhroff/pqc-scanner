@@ -24,7 +24,7 @@ def test_scan_path_skips_symlinked_files(tmp_path: Path):
 
 def test_scan_path_still_scans_regular_files(tmp_path: Path):
     source = tmp_path / "sample.py"
-    source.write_text("from Crypto.PublicKey import RSA\n", encoding="utf-8")
+    source.write_text("from cryptography.hazmat.primitives.asymmetric import rsa\n", encoding="utf-8")
 
     findings = scan_path(source)
 
