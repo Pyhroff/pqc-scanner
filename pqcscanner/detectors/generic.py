@@ -36,14 +36,25 @@ def detect_generic(path: Path, source: str) -> list[Finding]:
     }
 
     for bucket_key, rule_list in rules.items():
-        bucket, severity = bucket_map.get(bucket_key, (Bucket.CLASSICALLY_BROKEN, Severity.WARNING))
+        if bucket_key not in bucket_map:
+            expected = ", ".join(sorted(bucket_map))
+            raise ValueError(
+                f"Unknown detector bucket {bucket_key!r}; expected one of: {expected}"
+            )
+        bucket, severity = bucket_map[bucket_key]
 
         for rule in rule_list:
             exts: list[str] = rule.get("extensions", [])
             if exts and suffix not in exts:
                 continue
 
-            pattern = re.compile(rule["pattern"])
+            try:
+                pattern = re.compile(rule["pattern"])
+            except (KeyError, re.error) as exc:
+                raise ValueError(
+                    f"Invalid regex rule in bucket {bucket_key!r} for "
+                    f"{rule.get('algorithm', '<unknown algorithm>')!r}: {exc}"
+                ) from exc
             seen_lines: set[int] = set()
 
             for lineno, line in enumerate(lines, start=1):
