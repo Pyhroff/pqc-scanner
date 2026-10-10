@@ -334,3 +334,26 @@ def test_sarif_preserves_tool_name_scanned_path_and_fingerprint_metadata():
     assert run["properties"]["scanned_path"] == "src"
     assert run["properties"]["finding_count"] == len(run["results"])
     assert len(run["properties"]["finding_set_sha256"]) == 64
+
+
+def test_generic_detector_rejects_unknown_bucket(monkeypatch):
+    from pqcscanner.detectors import generic
+
+    monkeypatch.setattr(generic, "_RULES", {"made_up_bucket": []})
+    with pytest.raises(ValueError, match="Unknown detector bucket"):
+        generic.detect_generic(Path("sample.rs"), "use rsa::RsaPrivateKey;")
+
+
+def test_generic_detector_reports_invalid_rule_regex_with_context(monkeypatch):
+    from pqcscanner.detectors import generic
+
+    monkeypatch.setattr(generic, "_RULES", {
+        "quantum_broken": [{
+            "extensions": [".rs"],
+            "pattern": "(",
+            "algorithm": "RSA",
+            "recommendation": "Use a standardized post-quantum alternative.",
+        }]
+    })
+    with pytest.raises(ValueError, match="Invalid regex rule.*RSA"):
+        generic.detect_generic(Path("sample.rs"), "use rsa::RsaPrivateKey;")
