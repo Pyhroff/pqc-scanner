@@ -33,7 +33,7 @@ def scan_path(root: Path) -> list[Finding]:
     if root.is_symlink():
         return []
     if root.is_file():
-        return _scan_file(root)
+        return _scan_file(root) if _should_scan(root) else []
 
     findings: list[Finding] = []
     for path in sorted(root.rglob("*")):
