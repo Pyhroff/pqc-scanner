@@ -9,7 +9,7 @@ description = "Static analysis tool for detecting quantum-vulnerable cryptograph
 requires-python = ">=3.11"
 dependencies = [
     "typer>=0.12",
-    "rich>=13",
+    "rich>=15.0.0",
     "pyyaml>=6",
 ]
 
