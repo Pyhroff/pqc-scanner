@@ -30,3 +30,13 @@ def test_scan_path_still_scans_regular_files(tmp_path: Path):
 
     assert findings
     assert any("RSA" in finding.algorithm for finding in findings)
+
+
+def test_scan_path_skips_unsupported_direct_file(tmp_path: Path):
+    source = tmp_path / "notes.txt"
+    source.write_text(
+        "from cryptography.hazmat.primitives.asymmetric import rsa\n",
+        encoding="utf-8",
+    )
+
+    assert scan_path(source) == []
