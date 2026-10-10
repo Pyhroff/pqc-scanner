@@ -29,13 +29,15 @@ _SCAN_NAMES = frozenset({"Dockerfile", "nginx.conf", ".env.example", ".env.sampl
 
 
 def scan_path(root: Path) -> list[Finding]:
-    """Walk root recursively and return all findings across all scanned files."""
+    """Walk root recursively and return findings, excluding symlinked inputs."""
+    if root.is_symlink():
+        return []
     if root.is_file():
         return _scan_file(root)
 
     findings: list[Finding] = []
     for path in sorted(root.rglob("*")):
-        if path.is_file() and _should_scan(path):
+        if path.is_file() and not path.is_symlink() and _should_scan(path):
             findings.extend(_scan_file(path))
     return findings
 
@@ -54,6 +56,9 @@ def _should_scan(path: Path) -> bool:
 
 
 def _scan_file(path: Path) -> list[Finding]:
+    # Do not follow links to files outside the requested source tree.
+    if path.is_symlink():
+        return []
     try:
         source = path.read_text(encoding="utf-8", errors="ignore")
     except (OSError, PermissionError):
