@@ -42,7 +42,10 @@ Most "quantum-safe" scanners flag everything cryptographic. That's wrong - and a
 | **FIPS 203** | ML-KEM (Kyber) | RSA / ECDH / DH - key encapsulation |
 | **FIPS 204** | ML-DSA (Dilithium) | RSA-sign / ECDSA / DSA - digital signatures |
 | **FIPS 205** | SLH-DSA (SPHINCS+) | Hash-based conservative fallback |
-| FIPS 206 (in development) | FN-DSA (FALCON) | Compact lattice signatures |
+| FIPS 206 (in development) | FN-DSA (FALCON) | Compact lattice signatures; not yet a finalized FIPS standard |
+| HQC | Code-based KEM selected for future standardization | Not a finalized FIPS standard |
+
+**Crypto-agility basis (current as of October 2026).** NIST's *Considerations for Achieving Crypto Agility: Strategies and Practices*, CSWP 39 Update 1, became final on 29 June 2026. Treat migration as an inventory-and-lifecycle problem: identify algorithm use and protocol context, record evidence and uncertainty, prioritize replacement, and keep algorithm choice configurable rather than automatically rewriting cryptography. HAWK was withdrawn from NIST's additional-signature standardization process in July 2026; do not present it as an approved or finalized NIST standard. The finalized PQC standards remain FIPS 203 (ML-KEM), FIPS 204 (ML-DSA), and FIPS 205 (SLH-DSA).
 
 Reference implementation / prototyping library: [liboqs-python](https://github.com/open-quantum-safe/liboqs-python). OQS is a prototyping ecosystem; deployment choices should follow finalized standards and current vendor/library guidance.
 
