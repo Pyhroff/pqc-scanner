@@ -48,7 +48,13 @@ def detect_generic(path: Path, source: str) -> list[Finding]:
             if exts and suffix not in exts:
                 continue
 
-            pattern = re.compile(rule["pattern"])
+            try:
+                pattern = re.compile(rule["pattern"])
+            except (KeyError, re.error) as exc:
+                raise ValueError(
+                    f"Invalid regex rule in bucket {bucket_key!r} for "
+                    f"{rule.get('algorithm', '<unknown algorithm>')!r}: {exc}"
+                ) from exc
             seen_lines: set[int] = set()
 
             for lineno, line in enumerate(lines, start=1):
