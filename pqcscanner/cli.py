@@ -1,5 +1,6 @@
 """pqc-scan CLI — scan and ci commands."""
 
+import json
 import sys
 from pathlib import Path
 
@@ -8,7 +9,8 @@ from rich.console import Console
 
 from pqcscanner.scanner import scan_path
 from pqcscanner.taxonomy import Bucket, Severity
-from pqcscanner.report import print_text_report, to_json, to_html
+from pqcscanner.report import print_text_report, to_json, to_html, to_sarif
+from pqcscanner.inventory import build_inventory
 
 app = typer.Typer(
     help=(
@@ -28,15 +30,24 @@ _SEV_ORDER = {"critical": 3, "warning": 2, "informational": 1}
 @app.command()
 def scan(
     path: Path = typer.Argument(..., help="File or directory to scan", exists=True),
-    format: str = typer.Option("text", "--format", "-f", help="text | json | html"),
+    format: str = typer.Option("text", "--format", "-f", help="text | json | html | sarif"),
     output: Path | None = typer.Option(None, "--output", "-o", help="Write to file instead of stdout"),
     min_severity: str = typer.Option("warning", "--min-severity", help="Minimum severity to show: critical | warning | informational"),
 ) -> None:
     """Scan a codebase for quantum-vulnerable and classically-broken cryptography."""
-    _console.print(f"[dim]Scanning {path} …[/]")
+    format = format.strip().lower()
+    min_severity = min_severity.strip().lower()
+    if format not in {"text", "json", "html", "sarif"}:
+        raise typer.BadParameter("format must be one of: text, json, html, sarif")
+    if min_severity not in _SEV_ORDER:
+        raise typer.BadParameter("min-severity must be one of: critical, warning, informational")
+
+    # Keep stdout machine-readable when SARIF is streamed without --output.
+    if format != "sarif" or output is not None:
+        _console.print(f"[dim]Scanning {path} …[/]")
     findings = scan_path(path)
 
-    threshold = _SEV_ORDER.get(min_severity.lower(), 2)
+    threshold = _SEV_ORDER[min_severity]
     findings = [f for f in findings if _SEV_ORDER.get(f.severity.value, 0) >= threshold]
 
     if format == "json":
@@ -51,9 +62,31 @@ def scan(
         out = output or Path("pqc-report.html")
         out.write_text(result, encoding="utf-8")
         _console.print(f"[green]HTML report → {out}[/]")
-    else:
+    elif format == "sarif":
+        result = to_sarif(findings, scanned_path=str(path))
+        if output:
+            output.write_text(result + "\n", encoding="utf-8")
+            _console.print(f"[green]SARIF report → {output}[/]")
+        else:
+            print(result)
+    elif format == "text":
         print_text_report(findings, _console)
+    raise typer.Exit(0)
 
+
+@app.command()
+def inventory(
+    path: Path = typer.Argument(..., help="Python file or project directory to inventory", exists=True),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Write JSON inventory to this file"),
+) -> None:
+    """Build a static inventory of known cryptographic API observations in Python."""
+    report = build_inventory(path)
+    rendered = json.dumps(report, indent=2, sort_keys=True)
+    if output:
+        output.write_text(rendered + "\n", encoding="utf-8")
+        _console.print(f"[green]Crypto inventory → {output}[/]")
+    else:
+        print(rendered)
     raise typer.Exit(0)
 
 
@@ -67,9 +100,13 @@ def ci(
 
     Exit codes: 0 = clean · 1 = findings found · 2 = error
     """
+    fail_on = fail_on.strip().lower()
+    if fail_on not in {"critical", "warning"}:
+        raise typer.BadParameter("fail-on must be one of: critical, warning")
+
     findings = scan_path(path)
 
-    threshold = _SEV_ORDER.get(fail_on.lower(), 3)
+    threshold = _SEV_ORDER[fail_on]
     failures = [f for f in findings if _SEV_ORDER.get(f.severity.value, 0) >= threshold]
 
     qb = sum(1 for f in failures if f.bucket == Bucket.QUANTUM_BROKEN)
