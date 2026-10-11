@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=70"]
+requires = ["setuptools>=84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,9 +8,9 @@ version = "1.0.0"
 description = "Static analysis tool for detecting quantum-vulnerable cryptography and recommending NIST PQC replacements"
 requires-python = ">=3.11"
 dependencies = [
-    "typer>=0.12",
-    "rich>=13",
-    "pyyaml>=6",
+    "typer>=0.27.2",
+    "rich>=15.0.0",
+    "pyyaml>=6.0.3",
 ]
 
 [project.scripts]
