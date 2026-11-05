@@ -1,5 +1,7 @@
 # pqc-scanner
 
+[![CI](https://github.com/Pyhroff/pqc-scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/Pyhroff/pqc-scanner/actions/workflows/ci.yml)
+
 **Static analysis tool that detects quantum-vulnerable cryptography and recommends NIST PQC replacements.**
 
 ```bash
@@ -195,22 +197,6 @@ NIST PQC (Aug 2024): ML-KEM FIPS 203 · ML-DSA FIPS 204 · SLH-DSA FIPS 205
 
 ---
 
-## License
-
-MIT - see [LICENSE](LICENSE).
-
-
-### SARIF integration
-
-The `sarif` format emits SARIF 2.1.0 with stable rule identifiers, source locations, severity levels, fingerprints, and finding properties:
-
-```bash
-pqc-scan scan ./my-project --format sarif --output results.sarif
-```
-
-Use the resulting file with GitHub code scanning or the companion bridge in [Quantum Collapse](https://github.com/Pyhroff/quantum-collapse), which keeps observed static findings separate from scenario assumptions. SARIF output is a reporting format; it does not by itself upload results to GitHub or certify a repository as quantum-safe.
-
-
 ## Regression evaluation
 
 CI validates both a vulnerable RSA fixture and a clean AES-256/SHA-256 fixture against the official OASIS SARIF 2.1.0 JSON Schema. It also runs `scripts/evaluate_fixture_corpus.py`, which emits a JSON report with fixture-level precision/recall/F1 and confusion counts for the curated labelled fixtures.
@@ -241,3 +227,18 @@ Run `pqc-scan inventory ./src --output crypto-inventory.json` to inventory recog
 - `not_flagged_by_current_taxonomy`: recognized hash APIs not classified as broken by this scanner.
 
 This is a static, Python-only inventory. Dynamic algorithm names, indirect wrappers, key lengths, configuration, non-Python code, and runtime-loaded cryptography may be missed. A recognized API is an observation, not proof of a vulnerability or proof of safety.
+
+## License
+
+MIT - see [LICENSE](LICENSE).
+
+
+### SARIF integration
+
+The `sarif` format emits SARIF 2.1.0 with stable rule identifiers, source locations, severity levels, fingerprints, and finding properties:
+
+```bash
+pqc-scan scan ./my-project --format sarif --output results.sarif
+```
+
+Use the resulting file with GitHub code scanning or the companion bridge in [Quantum Collapse](https://github.com/Pyhroff/quantum-collapse), which keeps observed static findings separate from scenario assumptions. SARIF output is a reporting format; it does not by itself upload results to GitHub or certify a repository as quantum-safe.
