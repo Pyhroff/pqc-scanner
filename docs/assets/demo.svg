@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="172" font-family="monospace" font-size="13"><style>.l{opacity:0;animation:s .01s forwards}@keyframes s{to{opacity:1}}</style><rect width="900" height="172" rx="8" fill="#0d1117"/>
+<text class="l" style="animation-delay:0.0s" x="16" y="32" fill="#7ee787" xml:space="preserve">$ pqc-scan tests/</text>
+<text class="l" style="animation-delay:0.4s" x="16" y="54" fill="#c9d1d9" xml:space="preserve">Usage: pqc-scan [OPTIONS] COMMAND [ARGS]...</text>
+<text class="l" style="animation-delay:0.8s" x="16" y="76" fill="#c9d1d9" xml:space="preserve">Try &#x27;pqc-scan --help&#x27; for help.</text>
+<text class="l" style="animation-delay:1.2000000000000002s" x="16" y="98" fill="#c9d1d9" xml:space="preserve">╭─ Error ──────────────────────────────────────────────────────────────────────╮</text>
+<text class="l" style="animation-delay:1.6s" x="16" y="120" fill="#c9d1d9" xml:space="preserve">│ No such command &#x27;tests/&#x27;.                                                    │</text>
+<text class="l" style="animation-delay:2.0s" x="16" y="142" fill="#c9d1d9" xml:space="preserve">╰──────────────────────────────────────────────────────────────────────────────╯</text>
+</svg>

@@ -1,5 +1,8 @@
 # pqc-scanner
 
+![pqc-scan demo](docs/assets/demo.svg)
+
+
 [![CI](https://github.com/Pyhroff/pqc-scanner/actions/workflows/ci.yml/badge.svg)](https://github.com/Pyhroff/pqc-scanner/actions/workflows/ci.yml)
 
 **Static analysis tool that detects quantum-vulnerable cryptography and recommends NIST PQC replacements.**
@@ -242,3 +245,12 @@ pqc-scan scan ./my-project --format sarif --output results.sarif
 ```
 
 Use the resulting file with GitHub code scanning or the companion bridge in [Quantum Collapse](https://github.com/Pyhroff/quantum-collapse), which keeps observed static findings separate from scenario assumptions. SARIF output is a reporting format; it does not by itself upload results to GitHub or certify a repository as quantum-safe.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  A["Source Tree<br/>Python · JS/TS · Java · Go"] --> B["AST & Regex Analyzers<br/>RSA · ECC · DH · DSA"]
+  B --> C["NIST PQC Mapping<br/>FIPS 203 (ML-KEM) · 204 (ML-DSA) · 205 (SLH-DSA)"]
+  C --> D["Terminal · JSON · SARIF Output"]
+```
